@@ -4,9 +4,12 @@ import matplotlib.pyplot as plt
 
 event_rates = numpy.array([
     [2.25, 2.25, 0.75, 0.75, 3.15, 1.05],
-    [0.75, 0.75, 2.25, 2.25, 1.05, 3.15]]) / 100.0
+    [0.75, 0.75, 2.25, 2.25, 1.05, 3.15],
+    ]) / 100.0
 
-max_draws = 1000
+# event_rates = numpy.array([[2.0, 2.0]]) / 100.0
+
+max_draws = 500
 
 # At each stage we will draw until all cards for which
 # that is the best stage are drawn.
@@ -59,11 +62,13 @@ pdf = event_dist[(1,) * num_targets + (slice(None),)]
 cdf = numpy.cumsum(pdf)
 ccdf = 1.0 - cdf
 
-# Begin plot.
+# Plot.
 
 figsize = (16, 9)
 dpi = 120
 event_name = 'Neptunia'
+
+max_cubes = max_draws * 2
 
 fig = plt.figure(figsize=figsize)
 ax = plt.subplot(111)
@@ -71,10 +76,10 @@ ax = plt.subplot(111)
 ax.plot(2 * numpy.arange(max_draws + 1), 100.0 * ccdf, color = 'purple')
 ax.set_xlabel('Cubes')
 ax.set_ylabel('Chance NOT to have completed (%)')
-ax.set_xlim(left = 0.0, right = max_draws)
+ax.set_xlim(left = 0.0, right = max_cubes)
 ax.set_ylim(bottom = 0.0, top = 100.0)
 
-ax.set_xticks(numpy.arange(0, max_draws + 1, 100))
+ax.set_xticks(numpy.arange(0, max_cubes + 1, 100))
 ax.set_yticks(numpy.arange(0.0, 100.01, 10.0))
 
 for cubes in [500, 600, 700, 800, 900, 1000]:
@@ -86,3 +91,55 @@ ax.grid()
 ax.set_title('Drawing all %s event ships' % event_name)
 
 plt.savefig('cubes.png', dpi = dpi, bbox_inches = "tight")
+
+# Verification.
+
+verify_trials = 10000
+
+verify_histogram = numpy.zeros((max_draws + 1,))
+
+def do_trial():
+    def get_stage(stage):
+        stage_rates = event_rates[stage]
+        stage_rates = numpy.append(stage_rates, [1.0 - numpy.sum(event_rates[stage])])
+        mandatory_mask = mandatory_stages == stage
+        return stage_rates, mandatory_mask
+        
+    stage = 0
+    stage_rates, mandatory_mask = get_stage(stage)
+    mandatory_mask = mandatory_stages == stage
+    drawn = numpy.zeros((num_targets,), dtype = 'bool')
+
+    for draw in range(1, max_draws + 1):
+        card = numpy.random.choice(numpy.arange(num_targets + 1), p = stage_rates)
+        if card < num_targets:
+            drawn[card] = True
+        while numpy.all(drawn[mandatory_mask]):
+            stage += 1
+            if stage >= num_stages:
+                return draw
+            stage_rates, mandatory_mask = get_stage(stage)
+    return None
+
+
+for trial in range(verify_trials):
+    draws_needed = do_trial()
+    if draws_needed is not None:
+        verify_histogram[draws_needed] += 1
+    
+verify_histogram /= verify_trials
+verify_ccdf = 1.0 - numpy.cumsum(verify_histogram)
+
+fig = plt.figure(figsize=figsize)
+ax = plt.subplot(111)
+ax.plot(2 * numpy.arange(max_draws + 1), 100.0 * ccdf, color = 'purple')
+ax.plot(2 * numpy.arange(max_draws + 1), 100.0 * verify_ccdf)
+ax.set_xlabel('Cubes')
+ax.set_ylabel('Chance NOT to have completed (%)')
+ax.set_xlim(left = 0.0, right = max_draws * 2)
+ax.set_ylim(bottom = 0.0, top = 100.0)
+
+ax.set_xticks(numpy.arange(0, max_cubes + 1, 100))
+ax.set_yticks(numpy.arange(0.0, 100.01, 10.0))
+
+plt.show()
