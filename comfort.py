@@ -1,4 +1,11 @@
-# strategy: list of (qty, comfort, unit cost,)
+import numpy
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+
+# strategy: list of (qty, comfort, unit_cost)
+
+figsize = (16, 9)
+dpi = 120
 
 strategy_greedy = [
     (1, 10, 100), # first expansion
@@ -68,7 +75,7 @@ strategy_lazy_furniture = [
     (6, 4, 150), # 4-comfort furniture
     ]
 
-strategy_simple_greedy = [
+strategy_simple_fast = [
     (1, 10, 0), # first expansion
     (50, 2, 40),
     (50, 2, 150),
@@ -81,27 +88,56 @@ strategy_simple_mid = [
     (40, 2, 150),
     ]
 
-strategy_simple_lazy = [
+strategy_simple_slow = [
     (1, 10, 0), # first expansion
     (50, 4, 150),
     ]
 
-def compute_strategy_value(strategy):
-    total_comfort = 0
-    total_cost = 0
-    bonus_integral = 0.0
-    for qty, comfort, unit_cost in strategy:
-        for i in range(qty):
-            bonus_integral += unit_cost * total_comfort / (total_comfort + 100)
-            total_cost += unit_cost
-            total_comfort += comfort
-    reference_integral = total_cost * total_comfort / (total_comfort + 100)
-    loss_integral = bonus_integral - reference_integral
-    print(total_comfort, total_cost, bonus_integral, reference_integral, loss_integral)
+def strategy_total(strategy):
+    total_cost = sum(qty * unit_cost for (qty, comfort, unit_cost) in strategy)
+    total_comfort = sum(qty * comfort for (qty, comfort, unit_cost) in strategy)
+    return total_comfort, total_cost
 
-compute_strategy_value(strategy_greedy)
-compute_strategy_value(strategy_fast_expand)
-compute_strategy_value(strategy_lazy_furniture)
-compute_strategy_value(strategy_simple_greedy)
-compute_strategy_value(strategy_simple_mid)
-compute_strategy_value(strategy_simple_lazy)
+def xp_bonus(comfort):
+    return comfort / (comfort + 100.0)
+
+def plot_strategies(strategies, legend):
+    max_comfort = max(strategy_total(strategy)[0] for strategy in strategies)
+    max_cost = max(strategy_total(strategy)[1] for strategy in strategies)
+    
+    x = numpy.arange(0.0, max_cost + 1.0)
+
+    fig = plt.figure(figsize=figsize)
+    ax = plt.subplot(111)
+
+    ytick_interval = 50.0
+    ytick_comfort = numpy.arange(0.0, max_comfort + ytick_interval, ytick_interval)
+    ytick_bonus = xp_bonus(ytick_comfort)
+    ytick_labels = ['%d' % comfort for comfort in ytick_comfort]
+    
+    for strategy in strategies:
+        y = numpy.zeros_like(x)
+        t = 0
+        current_comfort = 0
+        for qty, comfort, unit_cost in strategy:
+            for i in range(qty):
+                y[t:t+unit_cost] = xp_bonus(current_comfort)
+                t += unit_cost
+                current_comfort += comfort
+            y[t:] = xp_bonus(current_comfort)
+        ax.plot(x, y)
+    ax.legend(legend, loc = 'upper left')
+    ax.set_xlim(left = 0.0, right = max_cost)
+    ax.set_ylim(bottom = 0.0, top = xp_bonus(ytick_comfort[-1]))
+    ax.set_yticks(ytick_bonus)
+    ax.set_yticklabels(ytick_labels)
+    ax.set_xlabel('Cumulative Furniture Coins')
+    ax.set_ylabel('Comfort, scaled to XP bonus')
+    ax.set_title('Decoration strategies')
+    ax.grid()
+    plt.savefig('comfort.png', dpi = dpi, bbox_inches = "tight")
+        
+plot_strategies([strategy_simple_fast, strategy_simple_slow],
+                ['Fast strategy: 50x 2-Comfort items, then replace with 50x 4-Comfort items',
+                 'Slow strategy: 50x 4-Comfort items'])
+
