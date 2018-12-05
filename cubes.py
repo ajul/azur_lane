@@ -2,14 +2,21 @@ import numpy
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-event_rates = numpy.array([
-    [2.25, 2.25, 0.75, 0.75, 3.15, 1.05],
-    [0.75, 0.75, 2.25, 2.25, 1.05, 3.15],
-    ]) / 100.0
-
-reference_rates = numpy.array([
-    [2.0, 2.0, 2.5, 2.5, 5.0],
-    ]) / 100.0
+events = {
+    'Fallen Wings Rerun' : (
+        numpy.array([
+            [2.0, 2.0, 2.5, 2.5, 5.0],
+        ]) / 100.0, 'blue'),
+    'Neptunia' : (
+        numpy.array([
+            [2.25, 0.75, 0.75, 3.15, 1.05],
+            [0.75, 2.25, 2.25, 1.05, 3.15],
+        ]) / 100.0, 'purple'),
+    'Opposite Colored Rerun' : (
+        numpy.array([
+            [2.0, 1.5, 2.0, 2.5, 2.5, 5.0],
+        ]) / 100.0, 'black'),
+}
 
 # event_rates = numpy.array([[2.0, 2.0]]) / 100.0
 
@@ -68,22 +75,32 @@ def compute_event(event_rates, max_draws):
     ccdf = 1.0 - cdf
     return ccdf
 
-ccdf = compute_event(event_rates, max_draws)
-reference_ccdf = compute_event(reference_rates, max_draws)
-
 # Plot.
 
 figsize = (16, 9)
 dpi = 120
-event_name = 'Neptunia'
+event_name = 'Opposite Colored Rerun'
 
 max_cubes = max_draws * 2
 
 fig = plt.figure(figsize=figsize)
 ax = plt.subplot(111)
 
-ax.plot(2 * numpy.arange(max_draws + 1), 100.0 * ccdf, color = 'purple')
-ax.plot(2 * numpy.arange(max_draws + 1), 100.0 * reference_ccdf, linestyle = ':', color = 'blue')
+legend = []
+
+rates, color = events[event_name]
+ccdf = compute_event(rates, max_draws)
+for cubes in [500, 600, 700, 800, 900, 1000]:
+    s = '1 in %d' % numpy.round(1.0 / ccdf[cubes // 2])
+    ax.annotate(s, [cubes, 10], rotation = 90, ha = 'right', va = 'bottom', color = color)
+ax.plot(2 * numpy.arange(max_draws + 1), 100.0 * ccdf, linestyle = '-', color = color)
+legend.append(event_name)
+
+for compare_name in ['Neptunia', 'Fallen Wings Rerun']:
+    rates, color = events[compare_name]
+    ax.plot(2 * numpy.arange(max_draws + 1), 100.0 * compute_event(rates, max_draws), linestyle = '--', color = color)
+    legend.append(compare_name)
+
 ax.set_xlabel('Cubes')
 ax.set_ylabel('Chance NOT to have completed (%)')
 ax.set_xlim(left = 0.0, right = max_cubes)
@@ -92,14 +109,10 @@ ax.set_ylim(bottom = 0.0, top = 100.0)
 ax.set_xticks(numpy.arange(0, max_cubes + 1, 100))
 ax.set_yticks(numpy.arange(0.0, 100.01, 10.0))
 
-for cubes in [500, 600, 700, 800, 900, 1000]:
-    s = '1 in %d' % numpy.round(1.0 / ccdf[cubes // 2])
-    ax.annotate(s, [cubes, 10], rotation = 90, ha = 'right', va = 'bottom', color = 'purple')
-
 ax.grid()
 
 ax.set_title('Drawing all %s event ships' % event_name)
-ax.legend([event_name, 'Fallen Wings Rerun'])
+ax.legend(legend)
 
 plt.savefig('cubes.png', dpi = dpi, bbox_inches = "tight")
 
