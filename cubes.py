@@ -2,27 +2,53 @@ import numpy
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
+
+# shortname : longname, stages, color
 events = {
-    'Fallen Wings Rerun' : (
+    '2%' : (
+        'One 2% ship',
+        numpy.array([
+            [2.0],
+        ]),
+        'black'),
+    'fw2' : (
+        'Fallen Wings Rerun',
         numpy.array([
             [2.0, 2.0, 2.5, 2.5, 5.0],
-        ]) / 100.0, 'blue'),
-    'Neptunia' : (
+        ]),
+        'blue'),
+    'nep' : (
+        'Neptunia',
         numpy.array([
             [2.25, 0.75, 0.75, 3.15, 1.05],
             [0.75, 2.25, 2.25, 1.05, 3.15],
-        ]) / 100.0, 'purple'),
-    'Opposite Colored Rerun' : (
+        ]),
+        'purple'),
+    'wc2' : (
+        "Winter's Crown Rerun",
         numpy.array([
-            [2.0, 1.5, 2.0, 2.5, 2.5, 5.0],
-        ]) / 100.0, 'black'),
+            [2.0, 2.25, 2.5],
+        ]),
+        'red'),
+    'vdir2' : (
+        'Visitors Dyed in Red Rerun (no Zuikaku)',
+        numpy.array([
+            [2.0, 2.0, 2.5, 4.0, 6.75, 6.75],
+        ]),
+        'red'),
+    'isss' : (
+        'Ink-Stained Steel Sakura',
+        numpy.array([
+            [2.0, 2.0, 2.5, 2.5, 5.0, 5.0],
+        ]),
+        'violet'),
 }
 
-# event_rates = numpy.array([[2.0, 2.0]]) / 100.0
-
-max_draws = 500
+max_calc_draws = 2000
+max_plot_draws = 300
 
 def compute_event(event_rates, max_draws):
+    event_rates = event_rates / 100.0
     # At each stage we will draw until all cards for which
     # that is the best stage are drawn.
     mandatory_stages = numpy.argmax(event_rates, axis = 0)
@@ -79,37 +105,52 @@ def compute_event(event_rates, max_draws):
 
 figsize = (16, 9)
 dpi = 120
-event_name = 'Opposite Colored Rerun'
+shortname = "isss"
 
-max_cubes = max_draws * 2
+max_calc_cubes = max_calc_draws * 2
 
 fig = plt.figure(figsize=figsize)
 ax = plt.subplot(111)
 
 legend = []
 
-rates, color = events[event_name]
-ccdf = compute_event(rates, max_draws)
-for cubes in [500, 600, 700, 800, 900, 1000]:
-    s = '1 in %d' % numpy.round(1.0 / ccdf[cubes // 2])
-    ax.annotate(s, [cubes, 10], rotation = 90, ha = 'right', va = 'bottom', color = color)
-ax.plot(2 * numpy.arange(max_draws + 1), 100.0 * ccdf, linestyle = '-', color = color)
+event_name, rates, event_color = events[shortname]
+ccdf = compute_event(rates, max_calc_draws)
+mean_cubes = 2 * numpy.sum(ccdf)
+mean_cubes_chance = ccdf[int(numpy.ceil(numpy.sum(ccdf)))]
+
+ax.semilogx(1.0 / ccdf, 2 * numpy.arange(max_calc_draws + 1), linestyle = '-', color = event_color)
 legend.append(event_name)
 
-for compare_name in ['Neptunia', 'Fallen Wings Rerun']:
-    rates, color = events[compare_name]
-    ax.plot(2 * numpy.arange(max_draws + 1), 100.0 * compute_event(rates, max_draws), linestyle = '--', color = color)
+for shortname in ['vdir2', '2%']:
+    compare_name, rates, color = events[shortname]
+    ccdf = compute_event(rates, max_calc_draws)
+    ax.semilogx(1.0 / ccdf, 2 * numpy.arange(max_calc_draws + 1), linestyle = '--', color = color)
     legend.append(compare_name)
+    print(numpy.sum(ccdf))
 
-ax.set_xlabel('Cubes')
-ax.set_ylabel('Chance NOT to have completed (%)')
-ax.set_xlim(left = 0.0, right = max_cubes)
-ax.set_ylim(bottom = 0.0, top = 100.0)
+ax.annotate('Mean: %0.1f cubes' % mean_cubes,
+            (1.0 / mean_cubes_chance, mean_cubes),
+            (1.0 / mean_cubes_chance, mean_cubes + 95),
+            color = event_color,
+            horizontalalignment = 'center',
+            arrowprops= {'arrowstyle' : '->', 'color' : event_color})
 
-ax.set_xticks(numpy.arange(0, max_cubes + 1, 100))
-ax.set_yticks(numpy.arange(0.0, 100.01, 10.0))
+ax.set_xlabel('Unluckiness')
+ax.set_ylabel('Cubes\n(minor lines = 20 cubes = 10 builds)')
 
-ax.grid()
+ax.set_xlim(left = 1.0, right = 600)
+ax.set_ylim(bottom = 0, top = max_plot_draws * 2)
+
+xticks = [5, 10, 20, 50, 100, 200, 500]
+ax.set_xticks([2] + xticks)
+ax.set_xticklabels(['1 in 2\n(median)'] + ['1 in %d' % x for x in xticks])
+
+ax.set_yticks(numpy.arange(0, max_plot_draws * 2 + 1, 100))
+ax.set_yticks(numpy.arange(0, max_plot_draws * 2 + 1, 20), minor = True)
+
+ax.grid(which = 'major')
+ax.grid(which = 'minor', linewidth=0.25)
 
 ax.set_title('Drawing all %s event ships' % event_name)
 ax.legend(legend)
