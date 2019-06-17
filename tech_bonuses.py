@@ -1,20 +1,19 @@
 import csv
 import re
 
-bonus_index = -2
-
 hull_strings = {
     'Destroyer' : 'DD',
     'Light Cruiser' : 'CL',
     'Heavy Cruiser, Monitor, Super Cruiser' : 'CA/BM/CB',
-    'Battlecruiser, Battleship, Aviation Battleship' : 'BB/BC/BBV',
+    'Battlecruiser, Battleship, Aviation Battleship' : 'BC/BB/BBV',
     'Light Aircraft Carrier, Aircraft Carrier' : 'CV/CVL',
-    'Light Aircraft Carrier' : 'CVL',
+    'Light Aircraft Carrier' : 'CV/CVL',
     'Repair Ship' : 'AR',
     'Submarine, Submarine Carrier' : 'SS/SSV',
 }
 
 hull_string_indexes = [x for x in hull_strings.values()]
+hull_string_indexes.remove('CV/CVL')
 
 bonus_indices = [
     'Health',
@@ -36,7 +35,7 @@ def sort_key(key):
     amount, stat = bonus.split(' ', maxsplit=1)
     return (hull_string_indexes.index(bonus_hulls_string), bonus_indices.index(stat), amount)
 
-main_nations = ['Eagle Union', 'Royal Navy', 'Sakura Empire', 'Metalblood']
+main_nations = ['Eagle Union', 'Royal Navy', 'Sakura Empire', 'Ironblood']
 
 explicit_name_replacements = {
     'Neptune' : 'HMS Neptune',
@@ -60,7 +59,7 @@ stat_replacements = [
     ('Anti-Air', 'AA'),
     ]
 
-def read_bonuses(index):
+def read_bonuses(bonus_index):
     bonuses = {}
     with open('tech_bonuses.csv', encoding='utf-8') as csvfile:
         reader = csv.reader(csvfile)
@@ -78,6 +77,8 @@ def read_bonuses(index):
             bonus_hulls_string = get_bonus_hulls_string(bonus_hulls)
 
             nation = row[2] or nation
+
+            if nation == 'Metalblood': nation = 'Ironblood'
 
             if name in explicit_name_replacements:
                 name = explicit_name_replacements[name]
@@ -111,29 +112,39 @@ def create_table(bonuses, bonus_hulls_string):
     result = ''
     result += bonus_hulls_string + '=\n'
     result += '{|class = "wikitable"\n'
-    result += '! Bonus\n'
-    for nation in main_nations + ['Other']:
-        result += '! style="width:20%;min-width:100px;" | ' + nation + '\n'
+    result += '! style="min-width:75px;" | Bonus\n'
+    result += '! style="width:100%;" | Ships\n'
 
     bonus_types = sorted(set(bonus for hulls, bonus in bonuses.keys() if hulls == bonus_hulls_string), key = lambda x: (bonus_indices.index(x[3:]), x))
         
     for bonus in bonus_types:
         result += '|-\n'
-        result += '| ' + bonus[:2] + '&nbsp;{{' + bonus[3:] + '}} '
+        result += '| ' + bonus[:3] + '{{' + bonus[3:] + '}}'
+        if bonus[3:] == 'ASW' and bonus_hulls_string == 'CV/CVL':
+            result += '<br/>(CVL only)'
+        elif bonus[3:] == 'Evasion' and bonus_hulls_string == 'BC/BB/BBV':
+            result += '<br/>(BC only)'
+        result += ' || '
         key = (bonus_hulls_string, bonus)
+        ship_lists = []
         for main_nation in main_nations:
-            result += ' || ' + ', '.join('[[' + name + ']]' for name, nation in sorted(bonuses[key]) if nation == main_nation)
+            ship_list = ', '.join('[[' + name + ']]' for name, nation in sorted(bonuses[key]) if nation == main_nation)
+            if ship_list:
+                ship_lists.append((main_nation, ship_list))
+        ship_list = ', '.join('[[' + name + ']]' for name, nation in sorted(bonuses[key]) if nation not in main_nations)
+        if ship_list:
+            ship_lists.append(('Other', ship_list))
             
-        result += ' || ' + ', '.join('[[' + name + ']]' for name, nation in sorted(bonuses[key]) if nation not in main_nations)
+        result += '<br/>'.join("'''" + nation + ":''' " + ship_list for nation, ship_list in ship_lists)
         result += '\n'
     result += '|}\n'
     return result
 
 def create_tabber(bonuses):
     result = ''
-    result += '<tabber>\n'
+    result += '<div style="width:1300px;"><tabber>\n'
     result += '|-|'.join(create_table(bonuses, bonus_hulls_string) for bonus_hulls_string in hull_string_indexes)
-    result += '</tabber>\n'
+    result += '</tabber></div>\n'
     return result
 
 result = ''
@@ -143,7 +154,7 @@ result += create_tabber(collect_bonuses)
 result += '==== Level 120 stat bonuses ====\n'
 result += create_tabber(lv120_bonuses)
 
-result += 'Special thanks to [[User:Dimbreath|Dimbreath]] for gathering/providing all of the data on Tech Point values, '
-result += 'original data can be found [https://docs.google.com/spreadsheets/d/1SOAqHc1zgE3SdSEZesrmKd0hDkhZL4Zg96heJMLbSOM/edit#gid=0 here]\n'
+#result += 'Special thanks to [[User:Dimbreath|Dimbreath]] for gathering/providing all of the data on Tech Point values, '
+#result += 'original data can be found [https://docs.google.com/spreadsheets/d/1SOAqHc1zgE3SdSEZesrmKd0hDkhZL4Zg96heJMLbSOM/edit#gid=0 here]\n'
 
 print(result)
