@@ -41,11 +41,60 @@ events = {
         numpy.array([
             [2.0, 2.0, 2.5, 2.5, 5.0, 5.0],
         ]),
+        'blue'),
+    'isss2' : (
+        'Ink-Stained Steel Sakura Rerun',
+        numpy.array([
+            [1.8, 2.0, 2.0, 2.5, 2.5, 2.5, 5.0, 5.0],
+        ]),
+        'magenta'),
+    'isss2_nk' : (
+        'Ink-Stained Steel Sakura Rerun (no Kawakaze)',
+        numpy.array([
+            [2.0, 2.0, 2.5, 2.5, 2.5, 5.0, 5.0],
+        ]),
+        'indigo'),
+    'kizuna' : (
+        'Kizuna AI Only',
+        numpy.array([
+            [2.0, 2.0],
+        ]),
+        'pink'),
+    'smol' : (
+        'Smolbotes Only',
+        numpy.array([
+            [2.5, 2.5, 2.5],
+        ]),
         'violet'),
+    'kizuna+smol' : (
+        'Kizuna AI + Smolbotes',
+        numpy.array([
+            [2.0, 2.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 2.5, 2.5, 2.5],
+        ]),
+        'red'),
+    'as' : (
+        'Ashen Simulacrum',
+        numpy.array([
+            [2.0, 2.0, 2.5,],
+        ]),
+        'steelblue'),
+    '1year' : (
+        '1 Year Anniversary',
+        numpy.array([
+            [1.8, 1.8, 2.5,],
+        ]),
+        'darkgoldenrod'),
+    'etc' : (
+        'Empyreal Tragicomedy',
+        numpy.array([
+            [2.0, 2.0, 2.5,],
+        ]),
+        'darkgreen'),
 }
 
 max_calc_draws = 2000
-max_plot_draws = 300
+max_plot_draws = 400
 
 def compute_event(event_rates, max_draws):
     event_rates = event_rates / 100.0
@@ -103,9 +152,38 @@ def compute_event(event_rates, max_draws):
 
 # Plot.
 
+annotation_offsets = [4.0]
+annotation_offset_index = 0
+
+def plot(ax, legend, shortname, is_primary):
+    global annotation_offset_index
+    name, rates, color = events[shortname]
+    ccdf = compute_event(rates, max_calc_draws)
+    if is_primary:
+        linestyle = '-'
+    else:
+        linestyle = '--'
+    ax.semilogy(2 * numpy.arange(max_calc_draws + 1), 1.0 / ccdf, linestyle = linestyle, color = color)
+    legend.append(name)
+
+    if is_primary:
+        mean_cubes = 2 * numpy.sum(ccdf)
+        mean_cubes_chance = ccdf[int(numpy.ceil(numpy.sum(ccdf)))]
+        ax.annotate('Mean: %0.1f cubes' % mean_cubes,
+                (mean_cubes, 1.0 / mean_cubes_chance,),
+                (mean_cubes, annotation_offsets[annotation_offset_index] / mean_cubes_chance),
+                color = color,
+                horizontalalignment = 'center',
+                verticalalignment = 'bottom',
+                arrowprops= {'arrowstyle' : '->', 'color' : color},
+                zorder = 100)
+        annotation_offset_index += 1
+
 figsize = (16, 9)
 dpi = 120
-shortname = "isss"
+
+event_shortnames = [ 'etc',]
+compare_shortnames = ["1year", '2%', 'nep']
 
 max_calc_cubes = max_calc_draws * 2
 
@@ -114,45 +192,26 @@ ax = plt.subplot(111)
 
 legend = []
 
-event_name, rates, event_color = events[shortname]
-ccdf = compute_event(rates, max_calc_draws)
-mean_cubes = 2 * numpy.sum(ccdf)
-mean_cubes_chance = ccdf[int(numpy.ceil(numpy.sum(ccdf)))]
+for shortname in event_shortnames: plot(ax, legend, shortname, True)
+for shortname in compare_shortnames: plot(ax, legend, shortname, False)
 
-ax.semilogx(1.0 / ccdf, 2 * numpy.arange(max_calc_draws + 1), linestyle = '-', color = event_color)
-legend.append(event_name)
+ax.set_xlabel('Cubes\n(minor lines = 20 cubes = 10 builds)')
+ax.set_ylabel('Chance to have constructed all ships')
 
-for shortname in ['vdir2', '2%']:
-    compare_name, rates, color = events[shortname]
-    ccdf = compute_event(rates, max_calc_draws)
-    ax.semilogx(1.0 / ccdf, 2 * numpy.arange(max_calc_draws + 1), linestyle = '--', color = color)
-    legend.append(compare_name)
-    print(numpy.sum(ccdf))
+ax.set_xlim(left = 0, right = max_plot_draws * 2)
+ax.set_ylim(bottom = 1.0, top = 600)
 
-ax.annotate('Mean: %0.1f cubes' % mean_cubes,
-            (1.0 / mean_cubes_chance, mean_cubes),
-            (1.0 / mean_cubes_chance, mean_cubes + 95),
-            color = event_color,
-            horizontalalignment = 'center',
-            arrowprops= {'arrowstyle' : '->', 'color' : event_color})
+ax.set_xticks(numpy.arange(0, max_plot_draws * 2 + 1, 100))
+ax.set_xticks(numpy.arange(0, max_plot_draws * 2 + 1, 20), minor = True)
 
-ax.set_xlabel('Unluckiness')
-ax.set_ylabel('Cubes\n(minor lines = 20 cubes = 10 builds)')
-
-ax.set_xlim(left = 1.0, right = 600)
-ax.set_ylim(bottom = 0, top = max_plot_draws * 2)
-
-xticks = [5, 10, 20, 50, 100, 200, 500]
-ax.set_xticks([2] + xticks)
-ax.set_xticklabels(['1 in 2\n(median)'] + ['1 in %d' % x for x in xticks])
-
-ax.set_yticks(numpy.arange(0, max_plot_draws * 2 + 1, 100))
-ax.set_yticks(numpy.arange(0, max_plot_draws * 2 + 1, 20), minor = True)
+yticks = [5, 10, 20, 50, 100, 200, 500]
+ax.set_yticks([2] + yticks)
+ax.set_yticklabels(['1 in 2\n(median)'] + ['%d in %d' % (y-1, y) for y in yticks])
 
 ax.grid(which = 'major')
 ax.grid(which = 'minor', linewidth=0.25)
 
-ax.set_title('Drawing all %s event ships' % event_name)
+ax.set_title('Drawing all %s event ships' % ', '.join(events[shortname][0] for shortname in event_shortnames))
 ax.legend(legend)
 
 plt.savefig('cubes.png', dpi = dpi, bbox_inches = "tight")

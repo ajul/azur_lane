@@ -56,11 +56,13 @@ areas = [
     (120, (255, 159, 127)),
 ]
 
-xp = xp_cn
+xp = xp_en
 
 divisor = 5000
 
 image_height = 20
+text_offset_x = -20
+text_offset_y = -5
 image_width = (numpy.sum(xp) - 1) // divisor + 1
 
 img = Image.new('RGB', (image_width, image_height), color = (0, 0, 0))
@@ -72,7 +74,18 @@ for level, color in areas:
     left = (prev_column - 1) // divisor + 1
     right = (column - 1) // divisor + 1
     draw.rectangle([left, 0, right, image_height], fill=color)
-    draw.text((right - 20, image_height // 2 - 5), '%3d' % level, fill = (0, 0, 0), align = 'right')
+    draw.text((right + text_offset_x, image_height // 2 + text_offset_y), '%3d' % level, fill = (0, 0, 0), align = 'right')
     prev_column = column
 
 img.save('xp.png')
+
+img = Image.new('RGB', (image_width, image_height), color = (0, 0, 0))
+draw = ImageDraw.Draw(img)
+
+for m in range(1, 5):
+    right = 1e6 / divisor * m
+    left = right - 500e3 / divisor
+    draw.rectangle([left, 0, right, image_height], fill=(255, 255, 255))
+    draw.text((right + text_offset_x, image_height // 2 + text_offset_y), '%dM' % m, fill = (0, 0, 0), align = 'right')
+
+img.save('xp_bands_scale.png')

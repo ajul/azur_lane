@@ -146,7 +146,7 @@ draw = ImageDraw.Draw(img)
 
 draw_bar(draw, 0, rare_xp, (127, 127, 255, 255), (191, 191, 255, 255))
 draw_bar(draw, 1, elite_xp, (255, 127, 255, 255), (255, 191, 255, 255))
-draw_bar(draw, 2, ssr_xp, (255, 191, 127, 255), (255, 223, 191, 255))
+draw_bar(draw, 2, ssr_xp, (255, 191, 63, 255), (255, 223, 159, 255))
 
 draw_scale(draw, 3)
 

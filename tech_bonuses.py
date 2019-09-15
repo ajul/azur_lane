@@ -158,3 +158,16 @@ result += create_tabber(lv120_bonuses)
 #result += 'original data can be found [https://docs.google.com/spreadsheets/d/1SOAqHc1zgE3SdSEZesrmKd0hDkhZL4Zg96heJMLbSOM/edit#gid=0 here]\n'
 
 print(result)
+
+def recsv(bonuses):
+    result = ''
+    for (hulls, bonus), value in bonuses.items():
+        for ship, nation in value:
+            result += '%s,%s,%s,%s\n' % (hulls, bonus, ship, nation)
+    return result
+
+with open('collection_bonuses.csv', mode = 'w') as f:
+    f.write(recsv(collect_bonuses))
+    
+with open('lv120_bonuses.csv', mode = 'w') as f:
+    f.write(recsv(lv120_bonuses))
