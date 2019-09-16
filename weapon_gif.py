@@ -132,13 +132,6 @@ def create_weapon_gif(weapon_id):
     bullet_src = bullet_srcs[weapon_src['bullet_ID'][1]]
     barrage_src = barrage_srcs[weapon_src['barrage_ID'][1]]
 
-    """
-    model = get_model(bullet_src)
-    palette_model = model.convert('RGB').quantize()
-    palette_model.save('test_model.gif')
-    palette = palette_model.palette
-    """
-
     barrage = Barrage(barrage_src, bullet_src)
 
     frames = []
@@ -163,4 +156,4 @@ def create_weapon_gif(weapon_id):
 # weapon 43000, bullet 1401 (kuasheAP), barrage 1206 = hipper
 # weapon 90140 = 136.8mm T3
 # bullet 1510 = Mk7 406 mm
-create_weapon_gif(12100)
+create_weapon_gif(22260)
