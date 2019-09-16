@@ -1,10 +1,12 @@
 import load_lua
 import math
+import subprocess
 from PIL import Image, ImageDraw
 
 bullet_srcs = load_lua.load_sharecfg('bullet_template')
 weapon_srcs = load_lua.load_sharecfg('weapon_property')
 barrage_srcs = load_lua.load_sharecfg('barrage_template')
+equip_srcs = load_lua.load_sharecfg('equip_data_statistics', key_type=int)
 
 bullet_models = {
     'BulletUSA' : ('bullet-04-y', 5), # normal
@@ -14,20 +16,26 @@ bullet_models = {
     'kuashe' : ('bullet_UK', 8), # big normal
     'kuasheHE' : ('kuasheHE', 8), # big HE
     'kuasheAP' : ('kuasheAP', 8), # big AP
+    'kuasheSAP' : ('bulletUSA', 8), # big SAP (not sure on model)
 }
 
 # default units: seconds, radians, game units
 
 fps = 30 # some browsers don't like more than 50; 30 is the highest integer factor of common frame rates
-duration = 1
-velocity_scale = 6
 time_stretch = 1
+
+velocity_scale = 6
+
 # pixels per in-game unit
 ppu = 10
 world_size = (80, 40)
 start_pos = (10, world_size[1] // 2)
 camera_slope = 2
 image_res = (ppu * world_size[0], ppu * world_size[1] // camera_slope)
+
+# gif stuff
+color_count = 16
+lossy = 20 # default 20
 
 serial_patterns = [
     [],
@@ -40,7 +48,7 @@ serial_patterns = [
 
 def get_model(bullet_src):
     model_name = bullet_src['modle_ID']
-    print(model_name)
+    #print(model_name)
     filename, length = bullet_models[model_name]
     model = Image.open('bullet_models/%s.png' % filename)
     new_res_x = round(ppu * length)
@@ -125,35 +133,95 @@ class Barrage():
         for bullet in self.bullets:
             frame = bullet.draw(frame, t)
         return frame
-        
 
-def create_weapon_gif(weapon_id):
-    weapon_src = weapon_srcs[weapon_id]
+def get_equip_sub_srcs(equip_src):
+    weapon_src = weapon_srcs[equip_src['weapon_id'][1]]
     bullet_src = bullet_srcs[weapon_src['bullet_ID'][1]]
     barrage_src = barrage_srcs[weapon_src['barrage_ID'][1]]
+    return weapon_src, bullet_src, barrage_src
+
+def create_equip_gif(equip_src, duration):
+    weapon_src, bullet_src, barrage_src = get_equip_sub_srcs(equip_src)
 
     barrage = Barrage(barrage_src, bullet_src)
 
-    frames = []
+    frame_filenames = []
+
+    frame_count = duration * fps * time_stretch
     
-    for frame_index in range(duration * fps * time_stretch):
+    for frame_index in range(frame_count):
         t = frame_index / fps / time_stretch
         frame = Image.new('RGBA', image_res)
         frame = barrage.draw(frame, t)
         frame = put_on_black_background(frame)
-        frames.append(frame)
+        frame_filename = 'weapon_gif_out/frame_%02d.gif' % frame_index
+        frame.convert('RGB').save(frame_filename)
+        frame_filenames.append(frame_filename)
 
-    frames[0].save('test_barrage.gif',
-                   save_all=True, append_images=frames[1:],
-                   duration=1000 // fps, loop=0)
+    filename_out = 'weapon_gif_out/weapon_pattern_%d.gif' % equip_src['id']
+
+    gifsicle_cmd = ['./gifsicle.exe',
+                    '--output=%s' % filename_out,
+                    '--loopcount=0',
+                    '--colors=%d' % color_count,
+                    '--lossy=%d' % lossy,
+                    '--delay=%d' % (100 // fps),
+                    '-O1'] + frame_filenames
+
+    subprocess.run(gifsicle_cmd)
+
+# (bullet_id, barrage_id) -> equip_id
+seen_patterns = {}
+
+for equip_id, equip_src in equip_srcs.items():
+    if equip_id < 1000:
+        # These are default weapons.
+        continue
+    if 'name' not in equip_src: continue
+    if 'type' not in equip_src: continue
+    if equip_src['type'] in [1, 2]:
+        # DD, CL
+        duration = 1
+    elif equip_src['type'] in [3, 11]:
+        # CA, CB
+        duration = 2
+    else:
+        continue
+    # label-less equips may not be proper equips
+    if len(equip_src['label']) == 0:
+        continue
+    try:
+        weapon_src, bullet_src, barrage_src = get_equip_sub_srcs(equip_src)
+    except KeyError:
+        print(equip_src['name'], ':', 'missing pattern data')
+        continue
+    pattern = (bullet_src['id'], barrage_src['id'])
+    if pattern in seen_patterns:
+        print('%s (equip_id %d): bullet_id %d, barrage_id %d => equip_id %d' % (
+            equip_src['name'],
+            equip_id,
+            pattern[0],
+            pattern[1],
+            seen_patterns[pattern]))
+    else:
+        """
+        print('%s (equip_id %d): bullet_id %d, barrage_id %d' % (
+            equip_src['name'],
+            equip_id,
+            pattern[0],
+            pattern[1]))
+        """
+        seen_patterns[pattern] = equip_id
+        create_equip_gif(equip_src, duration)
 
 # weapon 11000, bullet 999 (BulletUSA), barrage 1000 = 76mm
 # weapon 11200, bullet 1000 (BulletUK), barrage 1001 = gearing T1
 # weapon 11240, bullet 1006 (BulletJP), barrage 1001 = gearing T3
+# weapon 12100 = cleveland T1
 # weapon 31000, bullet 1200 (BulletUK), barrage 1001 = akizuki
 # weapon 41100, bullet 1303 (Bullet1), barrage 1001 = Z-46
 # weapon 42200, bullet 1304 (Bullet1), barrage 1001 = tabasco
 # weapon 43000, bullet 1401 (kuasheAP), barrage 1206 = hipper
 # weapon 90140 = 136.8mm T3
 # bullet 1510 = Mk7 406 mm
-create_weapon_gif(22260)
+# create_weapon_gif(12100)
