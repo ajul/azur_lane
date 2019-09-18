@@ -9,27 +9,27 @@ barrage_srcs = load_lua.load_sharecfg('barrage_template')
 equip_srcs = load_lua.load_sharecfg('equip_data_statistics', key_type=int)
 
 bullet_models = {
-    'BulletUSA' : ('bullet-04-y', 5), # normal
-    'BulletUK' : ('bullet_UK', 6), # normal
-    'BulletJP' : ('bulletjp', 6), # HE
-    'Bullet1' : ('kuasheAP', 6), # AP
-    'kuashe' : ('bullet_UK', 8), # big normal
-    'kuasheHE' : ('kuasheHE', 8), # big HE
-    'kuasheAP' : ('kuasheAP', 8), # big AP
-    'kuasheSAP' : ('bulletUSA', 8), # big SAP (not sure on model)
+    'BulletUSA' : ('bullet-04-y', 4, 1), # normal
+    'BulletUK' : ('bullet_UK', 6, 2), # normal
+    'BulletJP' : ('bulletjp', 6, 2), # HE
+    'Bullet1' : ('kuasheAP', 6, 2), # AP
+    'kuashe' : ('bullet_UK', 8, 4), # big normal
+    'kuasheHE' : ('kuasheHE', 8, 4), # big HE
+    'kuasheAP' : ('kuasheAP', 8, 4), # big AP
+    'kuasheSAP' : ('bulletUSA', 8, 4), # big SAP (not sure on model)
 }
 
 # default units: seconds, radians, game units
 
-fps = 30 # some browsers don't like more than 50; 30 is the highest integer factor of common frame rates
+fps = 50 # some browsers don't like more than 50; 30 is the highest integer factor of common frame rates
 time_stretch = 1
 
 velocity_scale = 6
 
 # pixels per in-game unit
 ppu = 10
-world_size = (80, 40)
-start_pos = (10, world_size[1] // 2)
+world_size = (75, 30)
+start_pos = (5, world_size[1] // 2)
 camera_slope = 2
 image_res = (ppu * world_size[0], ppu * world_size[1] // camera_slope)
 
@@ -49,11 +49,10 @@ serial_patterns = [
 def get_model(bullet_src):
     model_name = bullet_src['modle_ID']
     #print(model_name)
-    filename, length = bullet_models[model_name]
+    filename, length, width = bullet_models[model_name]
     model = Image.open('bullet_models/%s.png' % filename)
     new_res_x = round(ppu * length)
-    scale = length * ppu / model.size[0]
-    new_res_z = round(scale * model.size[1])
+    new_res_z = round(ppu * width)
     return model.resize((new_res_x, new_res_z), Image.LANCZOS)
 
 def put_on_black_background(image):
@@ -158,14 +157,14 @@ def create_equip_gif(equip_src, duration):
         frame.convert('RGB').save(frame_filename)
         frame_filenames.append(frame_filename)
 
-    filename_out = 'weapon_gif_out/weapon_pattern_%d.gif' % equip_src['id']
+    filename_out = 'weapon_gif_out/bullet_pattern_equip_%d.gif' % equip_src['id']
 
     gifsicle_cmd = ['./gifsicle.exe',
                     '--output=%s' % filename_out,
                     '--loopcount=0',
                     '--colors=%d' % color_count,
                     '--lossy=%d' % lossy,
-                    '--delay=%d' % (100 // fps),
+                    '--delay=%d' % round(100 / fps),
                     '-O1'] + frame_filenames
 
     subprocess.run(gifsicle_cmd)
@@ -196,21 +195,17 @@ for equip_id, equip_src in equip_srcs.items():
         print(equip_src['name'], ':', 'missing pattern data')
         continue
     pattern = (bullet_src['id'], barrage_src['id'])
+    base_log = '%s (equip_id %d): bullet_id %d, barrage_id %d' % (
+        equip_src['name'],
+        equip_id,
+        pattern[0],
+        pattern[1])
     if pattern in seen_patterns:
-        print('%s (equip_id %d): bullet_id %d, barrage_id %d => equip_id %d' % (
-            equip_src['name'],
-            equip_id,
-            pattern[0],
-            pattern[1],
+        print('%-100s => equip_id %d' % (
+            base_log,
             seen_patterns[pattern]))
     else:
-        """
-        print('%s (equip_id %d): bullet_id %d, barrage_id %d' % (
-            equip_src['name'],
-            equip_id,
-            pattern[0],
-            pattern[1]))
-        """
+        print(base_log)
         seen_patterns[pattern] = equip_id
         create_equip_gif(equip_src, duration)
 
