@@ -28,3 +28,8 @@ def load_sharecfg(table_name, key_type = None):
         g = lua.globals()
         
         return convert_to_python_dict(g.pg[table_name], key_type)
+
+def load_skill(skill_id):
+    path = os.path.join(src_dir, 'gamecfg', 'skill', 'skill_%d.lua' % skill_id)
+    with open(path, encoding='utf-8') as f:
+        return convert_to_python_dict(lua.execute(f.read()))
