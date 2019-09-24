@@ -2,7 +2,13 @@ import load_lua
 import math
 import subprocess
 import copy
+import hashlib
+import struct
 from PIL import Image, ImageDraw
+
+startupinfo = subprocess.STARTUPINFO()
+startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+startupinfo.wShowWindow = 7 # SW_SHOWMINNOACTIVE
 
 weapon_srcs = load_lua.load_sharecfg('weapon_property')
 barrage_srcs = load_lua.load_sharecfg('barrage_template')
@@ -19,11 +25,14 @@ bullet_models = {
     'kuasheSAP' : ('bulletUSA', 8, 4), # big SAP (not sure on model)
     'Torpedo01' : ('Torpedo01', 2, 1), 
     
-    'kuashetuowei' : ('bullet_UK', 8, 4),
+    'kuashetuowei' : ('bullet_UK', 8, 3),
     'BulletGER' : ('bulletGER', 3, 3),
-    'chuantoudan' : ('path_00269', 4, 0.5),
+    'chuantoudan' : ('path_00269', 6, 0.5),
     'Bomberbomb500' : ('Bomberbomb150lb', 4, 2),
-    'xingxingzidan01' : ('AL_Star01', 3, 3),
+    'xingxingzidan01' : ('AL_Star01', 2, 2),
+    'xingxingzidan02' : ('AL_Star02', 2, 2),
+    'Bulletelc' : ('bulletUSA', 6, 2), # eldridge until i get the proper image
+    'Torpedo_Vampire' : ('Torpedo_Vampire', 2, 1), 
 }
 
 velocity_factor = 6
@@ -69,6 +78,11 @@ class Vector():
     def ground_magnitude_squared(self):
         return self.x * self.x + self.z * self.z
         
+    def ground_angle_degrees(self):
+        vertical = self.z
+        horizontal = self.x
+        return math.degrees(math.atan2(vertical, horizontal))
+        
     def draw_angle_degrees(self):
         vertical = self.y + self.z / camera_slope
         horizontal = self.x
@@ -78,7 +92,7 @@ class Vector():
         return self / self.magnitude()
         
     def ground_cross(self):
-        return Vector(self.z, 0, -self.x)
+        return Vector(-self.z, 0.0, self.x)
     
     def __add__(self, other):
         return Vector(self.x + other.x, self.y + other.y, self.z + other.z)
@@ -91,6 +105,9 @@ class Vector():
 
     def __truediv__(self, other):
         return Vector(self.x / other, self.y / other, self.z / other)
+    
+    def __str__(self):
+        return '(%f, %f, %f)' % (self.x, self.y, self.z)
 
 class Bullet():
     def __init__(self, model, delay, position0, velocity0, gravity, accelerations, max_range):
@@ -99,7 +116,14 @@ class Bullet():
         self.position0 = position0
         self.velocity0 = velocity0
         self.gravity = gravity
-        self.accelerations = [accelerations[k] for k in sorted(accelerations.keys())]
+        self.accelerations = []
+        for k in sorted(accelerations.keys()):
+            raw_acceleration = accelerations[k]
+            acceleration = copy.deepcopy(raw_acceleration)
+            if 'flip' in raw_acceleration and raw_acceleration['flip'] and self.velocity0.ground_angle_degrees() >= 0.0:
+                acceleration['v'] *= -1.0
+            self.accelerations.append(acceleration)
+                
         self.max_range = max_range
         
         if gravity != 0:
@@ -115,14 +139,15 @@ class Bullet():
         self.position = self.position0.copy()
         self.velocity = self.velocity0.copy()
         self.acceleration_index = 0
-        self.previous_angle = None
+        self.acceleration_sign = 1
+        self.previous_draw_angle = None
         self.update_model_rotation()
 
     def update_model_rotation(self):
-        angle = self.velocity.draw_angle_degrees()
-        if angle != self.previous_angle:
-            self.model_rotated = self.model.rotate(angle, Image.BICUBIC, True)
-        self.previous_angle = angle
+        draw_angle = self.velocity.draw_angle_degrees()
+        if draw_angle != self.previous_draw_angle:
+            self.model_rotated = self.model.rotate(draw_angle, Image.BICUBIC, True)
+        self.previous_draw_angle = draw_angle
         
     def update(self, t, dt):
         if t >= self.delay: 
@@ -133,17 +158,25 @@ class Bullet():
         if (self.position - self.position0).ground_magnitude_squared() > self.max_range * self.max_range:
             self.alive = False
             return
-        while self.acceleration_index + 1 < len(self.accelerations):
-            next_acceleration = self.accelerations[self.acceleration_index + 1]
-            if t >= next_acceleration['t']:
-                self.acceleration_index += 1
-            else:
-                current_acceleration = self.accelerations[self.acceleration_index]
-                if 'u' in current_acceleration:
-                    self.velocity += self.velocity.normalized() * current_acceleration['u'] * dt * acceleration_factor
-                if 'v' in current_acceleration:
-                    self.velocity += self.velocity.ground_cross().normalized() * current_acceleration['v'] * dt * acceleration_factor
-                break
+        
+        if len(self.accelerations) > 0:
+            while self.acceleration_index + 1 < len(self.accelerations):
+                next_acceleration = self.accelerations[self.acceleration_index + 1]
+                if t - self.delay >= next_acceleration['t']:
+                    self.acceleration_index += 1
+                else:
+                    break
+
+            current_acceleration = self.accelerations[self.acceleration_index]
+            if 'u' in current_acceleration:
+                acceleration_u = current_acceleration['u'] * dt * acceleration_factor * self.acceleration_sign
+                if acceleration_u < 0 and acceleration_u * acceleration_u >= self.velocity.ground_magnitude_squared():
+                    acceleration_u = -1.0 * acceleration_u
+                    self.acceleration_sign *= -1.0
+                self.velocity += self.velocity.normalized() * acceleration_u
+            if 'v' in current_acceleration:
+                self.velocity += self.velocity.ground_cross().normalized() * current_acceleration['v'] * dt * acceleration_factor
+
         self.velocity.y += self.gravity * dt * acceleration_factor
         
         self.update_model_rotation()
@@ -160,7 +193,7 @@ class Bullet():
         return Image.alpha_composite(frame, overlay)
 
 class Barrage():
-    def __init__(self, barrage_src, bullet_src, start_pos, ppu, range_limit, hash_index):
+    def __init__(self, barrage_src, bullet_src, start_pos, target_pos, ppu, range_limit, hash_index):
         if barrage_src['trans_ID'] >= 0:
             raise NotImplementedError('trans_ID not implemented.')
     
@@ -174,16 +207,22 @@ class Barrage():
             gravity = bullet_src['extra_param']['gravity']
         else:
             gravity = 0.0
+        if gravity != 0.0:
+            max_range = (target_pos - start_pos).magnitude()
         accelerations = bullet_src['acceleration']
 
         parallel = barrage_src['primal_repeat'] + 1
         serial = barrage_src['senior_repeat'] + 1
         
-        delay_offset = barrage_src['delay'] # or first_delay?
+        first_delay = barrage_src['first_delay'] 
+        all_delay = barrage_src['delay']
         serial_delay = barrage_src['senior_delay']
-        delta_delay = barrage_src['delta_delay']
+        parallel_delay = barrage_src['delta_delay']
         
-        random_angle = math.radians(barrage_src['random_angle']) # TODO
+        if 'random_angle' in barrage_src and barrage_src['random_angle']:
+            has_random_angle = True
+        else:
+            has_random_angle = False
         offset_angle = math.radians(barrage_src['angle'])
         delta_angle = math.radians(barrage_src['delta_angle'])
         
@@ -195,20 +234,26 @@ class Barrage():
         
         self.bullets = []
     
+        bullet_idx = 0
         for serial_idx in range(serial):
             for parallel_idx in range(parallel):
-                delay = delay_offset + serial_delay * serial_idx + delay_offset * parallel_idx
-                x0 = start_pos[0] + offset_x + delta_offset_x * parallel_idx
-                z0 = start_pos[1] + offset_z + delta_offset_z * parallel_idx
+                delay = first_delay + serial_delay * serial_idx + parallel_delay * parallel_idx + all_delay * bullet_idx
+                x0 = start_pos.x + offset_x + delta_offset_x * parallel_idx
+                z0 = start_pos.z + offset_z + delta_offset_z * parallel_idx
                 angle = offset_angle + delta_angle * parallel_idx
-                if random_angle:
-                    h = (hash((hash_index, barrage_src['id'], serial_idx, parallel_idx)) % 0x80000000) / 0x80000000
+                if has_random_angle:
+                    hash_tuple = (hash_index, barrage_src['id'], serial_idx, parallel_idx)
+                    hasher = hashlib.md5()
+                    hasher.update(struct.pack('<LLLL', *hash_tuple))
+                    h = struct.unpack('<H', hasher.digest()[0:2])[0] / 2**16
                     angle *= (h - 0.5)
                 v0 = Vector.from_angle(angle) * speed
+                
                 self.bullets.append(Bullet(model, delay, Vector(x0, 0, z0), v0, gravity, accelerations, max_range))
+                bullet_idx += 1
         
         self.random_count = 0
-        if random_angle:
+        if has_random_angle:
             self.random_count = parallel * serial
             
     def reset(self):
@@ -227,11 +272,14 @@ class Barrage():
     def alive(self):
         return any(bullet.alive for bullet in self.bullets)
 
-def create_barrage_gif(filename_out, weapon_ids, world_size, ppu, min_duration = 0.0, max_duration = 60.0, range_limit = None, pad_duration = 0.0, fps = 50, time_stretch = 1, color_count = 16, lossy = 20):
+def create_barrage_gif(filename_out, weapon_ids, world_size, ppu, min_duration = 0.0, max_duration = 30.0, range_limit = None, min_pad_duration = 0.0, fps = 50, time_stretch = 1, color_count = 16, lossy = 20):
     image_res = (ppu * world_size[0], ppu * world_size[1] // camera_slope)
-    start_pos = (5, world_size[1] // 2)
+    start_pos = Vector(5, 0.0, world_size[1] / 2)
+    target_pos = Vector(world_size[0] - 5, 0.0, world_size[1] / 2)
     
     frame_filenames = []
+    # frame_index -> pad_duration_cs
+    pad_frames = {}
     frame_index = 0
     
     def draw_iteration(frame_index, hash_index):
@@ -250,7 +298,7 @@ def create_barrage_gif(filename_out, weapon_ids, world_size, ppu, min_duration =
             while barrage_index in weapon_src['barrage_ID']:
                 barrage_src = barrage_srcs[weapon_src['barrage_ID'][barrage_index]]
                 bullet_src = bullet_srcs[weapon_src['bullet_ID'][barrage_index]]
-                barrage = Barrage(barrage_src, bullet_src, start_pos, ppu, range_limit, hash_index = hash_index)
+                barrage = Barrage(barrage_src, bullet_src, start_pos, target_pos, ppu, range_limit, hash_index = hash_index)
                 if barrage.random_count > 0:
                     if random_count == 0: random_count = barrage.random_count
                     else: random_count = min(random_count, barrage.random_count)
@@ -263,7 +311,7 @@ def create_barrage_gif(filename_out, weapon_ids, world_size, ppu, min_duration =
         
         iteration_frame_index = 0
     
-        while t < min_duration or (any(draw_barrage.alive() for draw_barrage in draw_barrages) and t < max_duration):
+        while any(draw_barrage.alive() for draw_barrage in draw_barrages) and t < max_duration:
             t = iteration_frame_index / fps / time_stretch
             frame = Image.new('RGBA', image_res)
             for draw_barrage in draw_barrages:
@@ -278,12 +326,15 @@ def create_barrage_gif(filename_out, weapon_ids, world_size, ppu, min_duration =
             
             frame_index += 1
             iteration_frame_index += 1
-    
-        pad_frames = round(pad_duration / dt)
-        for i in range(pad_frames):
+        
+        pad_duration_cs = round(max(min_pad_duration, min_duration - t) * 100.0)
+        
+        if pad_duration_cs > 0:
             frame_filename = 'temp/frame_%02d.gif' % frame_index
-            Image.new('RGB', image_res).save(frame_filename)
+            pad_frames[frame_index] = pad_duration_cs
+            Image.new('RGB', image_res, color = (34, 34, 34, 255)).save(frame_filename)
             frame_filenames.append(frame_filename)
+            
             frame_index += 1
             iteration_frame_index += 1
             
@@ -294,15 +345,23 @@ def create_barrage_gif(filename_out, weapon_ids, world_size, ppu, min_duration =
     if random_count > 0:
         repeat_count = max(1, 5 - random_count)
         for repeat_idx in range(repeat_count):
-            draw_iteration(frame_index, repeat_idx + 1)
+            frame_index, _ = draw_iteration(frame_index, repeat_idx + 1)
+    
+    
 
     gifsicle_cmd = ['./gifsicle.exe',
                     '--output=%s' % filename_out,
                     '--loopcount=0',
                     '--colors=%d' % color_count,
                     '--lossy=%d' % lossy,
-                    '--delay=%d' % round(100 / fps),
-                    '-O1'] + frame_filenames
+                    '-O1']
+                    
+    for idx, frame_filename in enumerate(frame_filenames):
+        if idx in pad_frames:
+            delay = pad_frames[idx]
+        else:
+            delay = round(100 / fps)
+        gifsicle_cmd += [ '--delay=%d' % delay, frame_filename]
 
-    subprocess.run(gifsicle_cmd)
-
+    proc = subprocess.Popen(gifsicle_cmd, startupinfo = startupinfo)
+    proc.wait()
