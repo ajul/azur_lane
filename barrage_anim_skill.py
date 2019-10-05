@@ -1,4 +1,4 @@
-import barrage_gif
+import barrage_anim
 import load_lua
 import os
 import sys
