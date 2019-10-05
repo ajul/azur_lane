@@ -33,6 +33,14 @@ bullet_models = {
     'xingxingzidan02' : ('AL_Star02', 2, 2),
     'Bulletelc' : ('bulletUSA', 6, 2), # eldridge until i get the proper image
     'Torpedo_Vampire' : ('Torpedo_Vampire', 2, 1), 
+    'shizijia_faxi' : ('AL_Trail00', 3, 3),
+    'Bullet1_faxi' : ('AL_Trail01_1', 4, 4),
+    'Bullet2_faxi' : ('AL_Trail01_1', 4, 4),
+    'Bullet3_faxi' : ('AL_Trail01_1', 4, 4),
+    'hwxgz_1' : ('hwxgz_1', 3, 3),
+    'hwxgz_2' : ('hwxgz_2', 4, 2),
+    'hwxqb_1' : ('hwxqb_1', 3, 3),
+    'hwxqb_2' : ('hwxqb_2', 4, 2),
 }
 
 velocity_factor = 6
@@ -152,6 +160,7 @@ class Bullet():
     def update(self, t, dt):
         if t >= self.delay: 
             self.fired = True
+            dt = min(dt, t - self.delay)
         else:
             return
         self.position += self.velocity * dt * velocity_factor
