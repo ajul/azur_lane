@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 # shortname : longname, stages, color
 events = {
     '2%' : (
-        'One 2% ship',
+        'One specific 2% ship',
         numpy.array([
             [2.0],
         ]),
@@ -91,6 +91,18 @@ events = {
             [2.0, 2.0, 2.5,],
         ]),
         'darkgreen'),
+    'dc_con_drop' : (
+        'Divergent Chessboard Rerun construction/drop-only (GZ, Z46, U-47, Hipper, Z25, Z35, Z19)',
+        numpy.array([
+            [2.0, 1.5, 2.0, 2.5, 2.5, 2.5, 5.0],
+        ]),
+        'red'),
+    'dc_con' : (
+        'Divergent Chessboard Rerun construction-only (GZ, U-47, Z25)',
+        numpy.array([
+            [2.0, 2.0, 2.5,],
+        ]),
+        'darkred'),
 }
 
 max_calc_draws = 2000
@@ -152,7 +164,7 @@ def compute_event(event_rates, max_draws):
 
 # Plot.
 
-annotation_offsets = [4.0]
+annotation_offsets = [0.5, 4.0]
 annotation_offset_index = 0
 
 def plot(ax, legend, shortname, is_primary):
@@ -182,8 +194,8 @@ def plot(ax, legend, shortname, is_primary):
 figsize = (16, 9)
 dpi = 120
 
-event_shortnames = [ 'etc',]
-compare_shortnames = ["1year", '2%', 'nep']
+event_shortnames = [ 'dc_con_drop', 'dc_con', ]
+compare_shortnames = ['2%']
 
 max_calc_cubes = max_calc_draws * 2
 
@@ -211,7 +223,7 @@ ax.set_yticklabels(['1 in 2\n(median)'] + ['%d in %d' % (y-1, y) for y in yticks
 ax.grid(which = 'major')
 ax.grid(which = 'minor', linewidth=0.25)
 
-ax.set_title('Drawing all %s event ships' % ', '.join(events[shortname][0] for shortname in event_shortnames))
+ax.set_title('Drawing all %s event ships' % 'Divergent Chessboard Rerun')
 ax.legend(legend)
 
 plt.savefig('cubes.png', dpi = dpi, bbox_inches = "tight")

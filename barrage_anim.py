@@ -6,10 +6,6 @@ import hashlib
 import struct
 from PIL import Image, ImageDraw
 
-startupinfo = subprocess.STARTUPINFO()
-startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-startupinfo.wShowWindow = 7 # SW_SHOWMINNOACTIVE
-
 weapon_srcs = load_lua.load_sharecfg('weapon_property')
 barrage_srcs = load_lua.load_sharecfg('barrage_template')
 bullet_srcs = load_lua.load_sharecfg('bullet_template')
@@ -17,7 +13,7 @@ bullet_srcs = load_lua.load_sharecfg('bullet_template')
 bullet_models = {
     'BulletUSA' : ('bullet-04-y', 4, 1), # normal
     'BulletUK' : ('bullet_UK', 6, 2), # normal
-    'BulletJP' : ('bulletjp', 6, 2), # HE
+    'BulletJP' : ('bulletjp', 5, 1.25), # HE
     'Bullet1' : ('kuasheAP', 6, 2), # AP
     'kuashe' : ('bullet_UK', 8, 3), # big normal
     'kuasheHE' : ('kuasheHE', 8, 4), # big HE
@@ -241,6 +237,9 @@ class Barrage():
         offset_z = barrage_src['offset_z']
         delta_offset_z = barrage_src['delta_offset_z'] 
         
+        offset_prioritise = barrage_src['offset_prioritise']
+        if offset_prioritise: print('offset_prioritise', offset_angle, offset_z)
+        
         self.bullets = []
     
         bullet_idx = 0
@@ -281,14 +280,12 @@ class Barrage():
     def alive(self):
         return any(bullet.alive for bullet in self.bullets)
 
-def create_barrage_gif(filename_out, weapon_ids, world_size, ppu, min_duration = 0.0, max_duration = 30.0, range_limit = None, min_pad_duration = 0.0, fps = 50, time_stretch = 1, color_count = 16, lossy = 20):
+def create_barrage_anim(filename_out, animator, weapon_ids, world_size, ppu, min_duration = 0.0, max_duration = 30.0, range_limit = None, min_pad_duration = 0.0, time_stretch = 1):
     image_res = (ppu * world_size[0], ppu * world_size[1] // camera_slope)
     start_pos = Vector(5, 0.0, world_size[1] / 2)
     target_pos = Vector(world_size[0] - 5, 0.0, world_size[1] / 2)
     
     frame_filenames = []
-    # frame_index -> pad_duration_cs
-    pad_frames = {}
     frame_index = 0
     
     def draw_iteration(frame_index, hash_index):
@@ -316,19 +313,17 @@ def create_barrage_gif(filename_out, weapon_ids, world_size, ppu, min_duration =
                 barrage_index += 1
     
         t = 0.0
-        dt = 1.0 / fps / time_stretch
+        dt = 1.0 / animator.fps / time_stretch
         
         iteration_frame_index = 0
     
         while any(draw_barrage.alive() for draw_barrage in draw_barrages) and t < max_duration:
-            t = iteration_frame_index / fps / time_stretch
+            t = iteration_frame_index / animator.fps / time_stretch
             frame = Image.new('RGBA', image_res)
             for draw_barrage in draw_barrages:
                 frame = draw_barrage.draw(frame, ppu)
             frame = put_on_background(frame)
-            frame_filename = 'temp/frame_%02d.gif' % frame_index
-            frame.convert('RGB').save(frame_filename)
-            frame_filenames.append(frame_filename)
+            animator.write_frame(frame, frame_index)
             
             for draw_barrage in draw_barrages:
                 draw_barrage.update(t, dt)
@@ -336,16 +331,17 @@ def create_barrage_gif(filename_out, weapon_ids, world_size, ppu, min_duration =
             frame_index += 1
             iteration_frame_index += 1
         
-        pad_duration_cs = round(max(min_pad_duration, min_duration - t) * 100.0)
+        pad_duration = max(min_pad_duration, min_duration - t)
         
-        if pad_duration_cs > 0:
-            frame_filename = 'temp/frame_%02d.gif' % frame_index
-            pad_frames[frame_index] = pad_duration_cs
-            Image.new('RGB', image_res, color = (34, 34, 34, 255)).save(frame_filename)
-            frame_filenames.append(frame_filename)
+        if pad_duration > 0:
+            num_pad_frames = math.ceil(pad_duration * animator.fps)
+            for i in range(num_pad_frames):
+                frame_filename = 'temp/frame_%02d.gif' % frame_index
+                frame = Image.new('RGB', image_res, color = (34, 34, 34, 255))
+                animator.write_frame(frame, frame_index)
             
-            frame_index += 1
-            iteration_frame_index += 1
+                frame_index += 1
+                iteration_frame_index += 1
             
         return frame_index, random_count
     
@@ -356,21 +352,4 @@ def create_barrage_gif(filename_out, weapon_ids, world_size, ppu, min_duration =
         for repeat_idx in range(repeat_count):
             frame_index, _ = draw_iteration(frame_index, repeat_idx + 1)
     
-    
-
-    gifsicle_cmd = ['./gifsicle.exe',
-                    '--output=%s' % filename_out,
-                    '--loopcount=0',
-                    '--colors=%d' % color_count,
-                    '--lossy=%d' % lossy,
-                    '-O1']
-                    
-    for idx, frame_filename in enumerate(frame_filenames):
-        if idx in pad_frames:
-            delay = pad_frames[idx]
-        else:
-            delay = round(100 / fps)
-        gifsicle_cmd += [ '--delay=%d' % delay, frame_filename]
-
-    proc = subprocess.Popen(gifsicle_cmd, startupinfo = startupinfo)
-    proc.wait()
+    animator.write_animation(filename_out)

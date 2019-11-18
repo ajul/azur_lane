@@ -15,6 +15,42 @@ attributes = {
     12 : 'ASW',
 }
 
+ship_types = {
+    1 : 'DD',
+    2 : 'CL',
+    3 : 'CA',
+    4 : 'BC',
+    5 : 'BB',
+    6 : 'CVL',
+    7 : 'CV',
+    8 : 'SS',
+    10 : 'BBV',
+    12 : 'AR',
+    13 : 'BM',
+}
+
+ship_type_groups = [
+    ['DD'],
+    ['CL'],
+    ['CA', 'BM', 'CB'],
+    ['BC', 'BB', 'BBV'],
+    ['CV', 'CVL'],
+    ['AR'],
+    ['SS', 'SSV'],
+]
+
+nationalities = {
+    1 : 'Eagle Union',
+    2 : 'Royal Navy',
+    3 : 'Sakura Empire',
+    4 : 'Ironblood',
+    5 : 'Eastern Radiance',
+    6 : 'Sardegna Empire',
+    7 : 'North Union',
+    8 : 'Iris Libre',
+    9 : 'Vichya Dominion',
+}
+
 class Ship():
     def __init__(self, fleet_tech_ship):
         self.points_collect = fleet_tech_ship['pt_get']
@@ -28,6 +64,8 @@ class Ship():
 
         ship_data = ship_data_src[fleet_tech_ship['id'] * 10 + 1]
         self.name = ship_data['name']
+        self.ship_type = ship_types[ship_data['type']]
+        self.nationality = nationalities[ship_data['nationality']]
 
 ships = []
 
@@ -37,4 +75,9 @@ for fleet_tech_ship_id, fleet_tech_ship in fleet_tech_ship_src.items():
     except:
         print('Missing data for', fleet_tech_ship['id'])
 
-    
+for nationality in nationalities.values():
+    total = 0
+    for ship in ships:
+        if ship.nationality == nationality:
+            total += ship.points_collect + ship.points_lb + ship.points_120
+    print(nationality, total)

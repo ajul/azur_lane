@@ -1,3 +1,4 @@
+import anim
 import barrage_anim
 import load_lua
 import sys
@@ -57,5 +58,6 @@ for equip_id, equip_src in equip_srcs.items():
     else:
         print(base_log)
         seen_patterns[pattern] = equip_id
-        filename_out = 'weapon_gif_out/bullet_pattern_equip_%d.gif' % equip_src['id']
-        barrage_gif.create_barrage_gif(filename_out, [weapon_src['id']], world_size, ppu, min_duration = duration, max_duration = duration)
+        filename_out = 'weapon_anim_out/bullet_pattern_equip_%d.gif' % equip_src['id']
+        animator = anim.GifAnimator()
+        barrage_anim.create_barrage_anim(filename_out, animator, [weapon_src['id']], world_size, ppu, min_duration = duration, max_duration = duration)

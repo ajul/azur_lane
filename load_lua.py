@@ -33,3 +33,8 @@ def load_skill(skill_id):
     path = os.path.join(src_dir, 'gamecfg', 'skill', 'skill_%d.lua' % skill_id)
     with open(path, encoding='utf-8') as f:
         return convert_to_python_dict(lua.execute(f.read()))
+
+def load_buff(buff_id):
+    path = os.path.join(src_dir, 'gamecfg', 'buff', 'buff_%d.lua' % buff_id)
+    with open(path, encoding='utf-8') as f:
+        return convert_to_python_dict(lua.execute(f.read()))

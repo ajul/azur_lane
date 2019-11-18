@@ -1,3 +1,4 @@
+import anim
 import barrage_anim
 import load_lua
 import os
@@ -15,7 +16,7 @@ pad_duration = 0.5
 
 world_size = (75, 50)
 # pixels per in-game unit
-ppu = 10
+ppu = 20
 
 # compute skill -> ship
 skill_to_ship_names_map = {}
@@ -32,7 +33,7 @@ for ship_id, ship_data_src in ship_data_srcs.items():
 seen_weapon_sets = {}
 for skill_id, skill_display_src in skill_display_srcs.items():
     #if skill_id < 100000: continue
-    #if skill_id not in [29331, 29332]: continue
+    #if skill_id not in [29212]: continue
     try:
         skill_src = load_lua.load_skill(skill_id)
     except FileNotFoundError:
@@ -66,14 +67,14 @@ for skill_id, skill_display_src in skill_display_srcs.items():
         seen_weapon_sets[weapon_set] = skill_id
         print('ships', ship_names, ':', skill_display_src['name'], 'skill_id', skill_id, ': weapon_ids', weapon_ids)
     
-    filename_out = 'skill_gif_out/bullet_pattern_skill_%d.gif' % skill_id
+    filename_out = 'skill_anim_out/barrage_skill_%d.webm' % skill_id
+    animator = anim.Vp9Animator(fps = 60)
     if not os.path.exists(filename_out):
         try:
-            barrage_gif.create_barrage_gif(filename_out, weapon_ids, world_size, ppu,
-                                           range_limit = range_limit, max_duration = max_duration, min_pad_duration = pad_duration,
-                                           color_count = 32)
+            barrage_anim.create_barrage_gif(filename_out, animator, weapon_ids, world_size, ppu,
+                                           range_limit = range_limit, max_duration = max_duration, min_pad_duration = pad_duration)
         except:
-            pass
+            print(traceback.print_exc())
             #print(sys.exc_info(), traceback.print_exc())
     
 
