@@ -1,8 +1,9 @@
 import lupa
 from lupa import LuaRuntime
 import os
+import re
 
-src_dir = '../AzurLaneSource/EN'
+src_dir = '../AzurLaneScripts/EN'
 lua = LuaRuntime(unpack_returned_tuples=True)
 
 # If key_type is not None, top-level keys will be filtered to that type and sorted.
@@ -38,3 +39,10 @@ def load_buff(buff_id):
     path = os.path.join(src_dir, 'gamecfg', 'buff', 'buff_%d.lua' % buff_id)
     with open(path, encoding='utf-8') as f:
         return convert_to_python_dict(lua.execute(f.read()))
+
+def load_dungeon(dungeon_id):
+    path = os.path.join(src_dir, 'gamecfg', 'dungeon', '%d.lua' % dungeon_id)
+    with open(path, encoding='utf-8') as f:
+        raw = f.read()
+        processed = re.sub('Vector3\((.*?)\)', '{\g<1>}', raw)
+        return convert_to_python_dict(lua.execute(processed))

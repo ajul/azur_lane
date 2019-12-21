@@ -1,0 +1,8 @@
+/temp/*.bmp
+/skill_anim_out/*.gif
+/weapon_anim_out/*.gif
+/temp/*.gif
+/__pycache__
+/bullet_models/*.png
+/enemy_stats_out/*.txt
+/items/*.png

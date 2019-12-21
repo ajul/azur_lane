@@ -16,7 +16,7 @@ pad_duration = 0.5
 
 world_size = (75, 50)
 # pixels per in-game unit
-ppu = 20
+ppu = 10
 
 # compute skill -> ship
 skill_to_ship_names_map = {}
@@ -67,12 +67,12 @@ for skill_id, skill_display_src in skill_display_srcs.items():
         seen_weapon_sets[weapon_set] = skill_id
         print('ships', ship_names, ':', skill_display_src['name'], 'skill_id', skill_id, ': weapon_ids', weapon_ids)
     
-    filename_out = 'skill_anim_out/barrage_skill_%d.webm' % skill_id
-    animator = anim.Vp9Animator(fps = 60)
+    filename_out = 'skill_anim_out/bullet_pattern_skill_%d.gif' % skill_id
+    animator = anim.GifAnimator(color_count=32)
     if not os.path.exists(filename_out):
         try:
-            barrage_anim.create_barrage_gif(filename_out, animator, weapon_ids, world_size, ppu,
-                                           range_limit = range_limit, max_duration = max_duration, min_pad_duration = pad_duration)
+            barrage_anim.create_barrage_anim(filename_out, animator, weapon_ids, world_size, ppu,
+                                             range_limit = range_limit, max_duration = max_duration, min_pad_duration = pad_duration)
         except:
             print(traceback.print_exc())
             #print(sys.exc_info(), traceback.print_exc())

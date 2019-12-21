@@ -38,3 +38,15 @@ armor_types = {
     2 : 'Medium',
     3 : 'Heavy',
 }
+
+nationalities = {
+    1 : 'Eagle Union',
+    2 : 'Royal Navy',
+    3 : 'Sakura Empire',
+    4 : 'Ironblood',
+    5 : 'Eastern Radiance',
+    6 : 'Sardegna Empire',
+    7 : 'North Union',
+    8 : 'Iris Libre',
+    9 : 'Vichya Dominion',
+}
