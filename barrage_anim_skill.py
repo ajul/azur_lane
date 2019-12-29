@@ -5,6 +5,8 @@ import os
 import sys
 import traceback
 
+load_lua.server = 'EN'
+
 skill_data_srcs = load_lua.load_sharecfg('skill_data_template', key_type=int)
 skill_display_srcs = load_lua.load_sharecfg('skill_data_display', key_type=int)
 ship_data_srcs = load_lua.load_sharecfg('ship_data_template', key_type=int)
@@ -21,12 +23,16 @@ ppu = 10
 # compute skill -> ship
 skill_to_ship_names_map = {}
 
+def redo_condition(skill_src, skill_display_src, weapon_ids):
+    return False
+
 for ship_id, ship_data_src in ship_data_srcs.items():
     for skill_id in ship_data_src['buff_list_display'].values():
         if skill_id not in skill_to_ship_names_map:
             skill_to_ship_names_map[skill_id] = set()
-        direct_name = ship_data_src['name']
-        skill_to_ship_names_map[skill_id].add(direct_name)
+        if 'name' in ship_data_src:
+            direct_name = ship_data_src['name']
+            skill_to_ship_names_map[skill_id].add(direct_name)
         stats_name = ship_stats_srcs[ship_id]['name']
         skill_to_ship_names_map[skill_id].add(stats_name)
         
@@ -50,7 +56,11 @@ for skill_id, skill_display_src in skill_display_srcs.items():
     weapon_ids = []
     for idx, effect in last_effects.items():
         if effect['type'] != 'BattleSkillFire': continue
-        weapon_ids.append(effect['arg_list']['weapon_id'])
+        weapon_id = effect['arg_list']['weapon_id']
+        if 'delay' in effect['arg_list']:
+            weapon_id = (weapon_id, effect['arg_list']['delay'])
+        weapon_ids.append(weapon_id)
+            
     if len(weapon_ids) == 0: continue
     ship_names = []
     rounded_skill_id = (skill_id // 10) * 10
@@ -69,7 +79,7 @@ for skill_id, skill_display_src in skill_display_srcs.items():
     
     filename_out = 'skill_anim_out/bullet_pattern_skill_%d.gif' % skill_id
     animator = anim.GifAnimator(color_count=32)
-    if not os.path.exists(filename_out):
+    if not os.path.exists(filename_out) or redo_condition(skill_src, skill_display_src, weapon_ids):
         try:
             barrage_anim.create_barrage_anim(filename_out, animator, weapon_ids, world_size, ppu,
                                              range_limit = range_limit, max_duration = max_duration, min_pad_duration = pad_duration)

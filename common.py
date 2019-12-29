@@ -39,6 +39,11 @@ armor_types = {
     3 : 'Heavy',
 }
 
+equipment_types = {
+    7 : 'Fighter',
+    9 : 'Dive Bomber',
+}
+
 nationalities = {
     1 : 'Eagle Union',
     2 : 'Royal Navy',

@@ -1,63 +1,41 @@
-import lupa
-from lupa import LuaRuntime
-import os
+import load_lua
+import common
+import copy
 
-src_dir = '../AzurLane_ClientSource/Src/EN'
-bullet_path = os.path.join(src_dir, 'sharecfg/bullet_template.lua')
-weapon_path = os.path.join(src_dir, 'sharecfg/weapon_property.lua')
-equip_path = os.path.join(src_dir, 'sharecfg/equip_data_statistics.lua')
+bullet_srcs = load_lua.load_sharecfg('bullet_template')
+weapon_srcs = load_lua.load_sharecfg('weapon_property')
+equip_srcs = load_lua.load_sharecfg('equip_data_statistics')
 
-lua = LuaRuntime(unpack_returned_tuples=True)
+seen_strings = set()
 
-def convert_to_python_dict(lua_table):
-    result = {}
-    for k, v in lua_table.items():
-        try:
-            pv = convert_to_python_dict(v)
-        except AttributeError:
-            pv = v
-        result[k] = pv
-    return result
-         
-with open(bullet_path, encoding='utf-8') as f:
-    lua.execute(f.read())
-    g = lua.globals()
-    bullets = convert_to_python_dict(g.pg.bullet_template)
-
-with open(weapon_path, encoding='utf-8') as f:
-    lua.execute(f.read())
-    g = lua.globals()
-    weapons = convert_to_python_dict(g.pg.weapon_property)
-
-with open(equip_path, encoding='utf-8') as f:
-    lua.execute(f.read())
-    g = lua.globals()
-    equips = convert_to_python_dict(g.pg.equip_data_statistics)
-
-for bullet in bullets.values():
-    if 'extra_param' not in bullet: continue
-    if 'gravity' not in bullet['extra_param']: continue
-    if bullet['extra_param']['gravity'] >= -0.05: continue
-
-    print(bullet['id'], bullet['extra_param']['gravity'], bullet['damage_type'])
-
-"""
-
-for equip in equips.values():
-    if 'name' in equip and 'BB' in equip['label'].values():
-        print(equip['name'], equip['id'])
-        if 'ammo' in equip:
-            print(equip['ammo'])
-        weapon = weapons[equip['weapon_id'][1]]
-        
-            
-        if 'bullet_ID' not in weapon:
-            print('No bullet_ID')
+for equip_id, equip_src in equip_srcs.items():
+    if equip_src['type'] in [7, 8, 9]: continue
+    if 'name' not in equip_src:
+        print('equip', equip_id, 'missing name')
+        continue
+    equip_name = equip_src['name']
+    equip_tech = equip_src['tech']
+    if 'weapon_id' not in equip_src or len(equip_src['weapon_id']) == 0: continue
+    weapon_id = equip_src['weapon_id'][1]
+    weapon = weapon_srcs[weapon_id]
+    print(equip_name, weapon['angle'])
+    continue
+    for bullet_id in weapon['bullet_ID'].values():
+        if bullet_id not in bullet_srcs:
+            #print(equip_name, 'missing bullet ID:', bullet_id)
             continue
-        bullet = bullets[weapon['bullet_ID'][1]]
-        print(bullet['modle_ID'], bullet['velocity'])
-        #print(bullet['hit_type'])
-        #print(bullet['extra_param'])
-        print()
-
-"""
+        bullet = bullet_srcs[bullet_id]
+        random_x = 0
+        if 'randomOffsetX' in bullet['extra_param']:
+            random_x = bullet['extra_param']['randomOffsetX']
+        random_z = 0
+        if 'randomOffsetZ' in bullet['extra_param']:
+            random_z = bullet['extra_param']['randomOffsetZ']
+        splash = 0
+        if 'range' in bullet['hit_type']:
+            splash = bullet['hit_type']['range']
+        if random_x or random_z:
+            s = '%s T%d: %d x %d -> %d' % (equip_name, equip_tech, random_x, random_z, splash)
+            if s not in seen_strings:
+                seen_strings.add(s)
+                print(s)
