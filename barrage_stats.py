@@ -31,6 +31,7 @@ for skill_id, skill_display_src in skill_display_srcs.items():
     # (damage, bullet_id) -> num_bullets
 
     bullets = {}
+    barrage_ids = []
 
     for weapon_id in weapon_ids:
         if weapon_id not in weapon_srcs:
@@ -39,7 +40,9 @@ for skill_id, skill_display_src in skill_display_srcs.items():
         weapon_src = weapon_srcs[weapon_id]
         barrage_index = 1
         while barrage_index in weapon_src['barrage_ID']:
-            barrage_src = barrage_srcs[weapon_src['barrage_ID'][barrage_index]]
+            barrage_id = weapon_src['barrage_ID'][barrage_index]
+            barrage_ids.append(barrage_id)
+            barrage_src = barrage_srcs[barrage_id]
             bullet_id = weapon_src['bullet_ID'][barrage_index]
             if bullet_id not in bullet_srcs:
                 print('Skill', skill_id, ship_names, 'missing bullet', bullet_id)
@@ -54,7 +57,9 @@ for skill_id, skill_display_src in skill_display_srcs.items():
             num_bullets = (barrage_src['primal_repeat'] + 1) * (barrage_src['senior_repeat'] + 1)
             bullets[bullet_key] += num_bullets
             barrage_index += 1
-            
+
+    print('Skill %d %s: ships %s: weapon_ids %s, barrage_ids %s' % (
+        skill_id, skill_display_src['name'], ship_names, weapon_ids, barrage_ids))
     for (damage, bullet_id), num_bullets in bullets.items():
         bullet_src = bullet_srcs[bullet_id]
         bullet_type = bullet_src['type']
@@ -64,9 +69,25 @@ for skill_id, skill_display_src in skill_display_srcs.items():
 
             
         net_damage = tuple(damage * num_bullets * x for x in armor_modifiers)
-        s = 'Skill %d %s %s: bullet %d (type %d): base damage %0.2f x %d : net damage %0.2f / %0.2f / %0.2f' % (
-            skill_id, skill_display_src['name'], ship_names, bullet_id, bullet_type,
+        s = '    bullet %d (type %d) : base damage %0.2f x %d : net damage %0.2f / %0.2f / %0.2f' % (
+            bullet_id, bullet_type,
             damage, num_bullets,
             net_damage[0], net_damage[1], net_damage[2])
+        if bullet_src['pierce_count'] > 0:
+            s += '\n        pierce %d' % bullet_src['pierce_count']
+        buff_index = 1
+        while buff_index in bullet_src['attach_buff']:
+            buff = bullet_src['attach_buff'][buff_index]
+            if 'rant' in buff:
+                buff_chance = buff['rant'] / 100.0
+            else:
+                buff_chance = 100.0
+            buff_id = buff['buff_id']
+            if 'level' in buff:
+                buff_level = buff['level']
+            else:
+                buff_level = 0
+            s += '\n        %0.2f%% buff %d (lv %d)' % (buff_chance, buff_id, buff_level)
+            buff_index += 1
         print(s)
         

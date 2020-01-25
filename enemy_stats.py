@@ -14,7 +14,10 @@ air_datas = {}
 
 def process_spawn(chapter, expedition, dungeon, spawn):
     enemy_id = spawn['monsterTemplateID']
-    
+
+    if enemy_id not in enemy_data_srcs:
+        print('Enemy id', enemy_id, 'not found')
+        return
     enemy = enemy_data_srcs[enemy_id]
     if 'base' in enemy:
         base = copy.deepcopy(enemy_data_srcs[enemy['base']])
@@ -164,7 +167,7 @@ for chapter_key in sorted(datas):
             row_data.append(range_string(enemy_datas, stat))
         result += '|-\n| ' + ' || '.join(row_data) + '\n'
     result += '|}\n'
-    with open('enemy_stats_out/Chapter %s.txt' % chapter_name, 'w') as outfile:
+    with open('enemy_stats_out/Chapter %s.txt' % chapter_name, 'w', encoding='utf-8') as outfile:
         outfile.write(result)
 
 for chapter_key in sorted(air_datas):
@@ -186,5 +189,5 @@ for chapter_key in sorted(air_datas):
         ]
         result += '|-\n| ' + ' || '.join(row_data) + '\n'
     result += '|}\n'
-    with open('enemy_stats_out/Chapter %s air.txt' % chapter_name, 'w') as outfile:
+    with open('enemy_stats_out/Chapter %s air.txt' % chapter_name, 'w', encoding='utf-8') as outfile:
         outfile.write(result)

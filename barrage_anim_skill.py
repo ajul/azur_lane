@@ -23,7 +23,15 @@ ppu = 10
 # compute skill -> ship
 skill_to_ship_names_map = {}
 
+color_count_override = {
+    12800 : 128,
+    12810 : 64,
+}
+
+force_no_repeats = [12800, 12810]
+
 def redo_condition(skill_src, skill_display_src, weapon_ids):
+    #if skill_src['id'] in [12800, 12810]: return True
     return False
 
 for ship_id, ship_data_src in ship_data_srcs.items():
@@ -37,6 +45,17 @@ for ship_id, ship_data_src in ship_data_srcs.items():
         skill_to_ship_names_map[skill_id].add(stats_name)
         
 seen_weapon_sets = {}
+skill_to_ship_names_map[40000] = set(["Bunny (Meowfficer)"])
+skill_to_ship_names_map[40001] = set(["Bunny (Meowfficer)"])
+skill_display_srcs[40000] = {
+    'name' : 'Bite Their Fingers I',
+    'id' : 40000,
+}
+skill_display_srcs[40001] = {
+    'name' : 'Bite Their Fingers II',
+    'id' : 40001,
+}
+
 for skill_id, skill_display_src in skill_display_srcs.items():
     #if skill_id < 100000: continue
     #if skill_id not in [29212]: continue
@@ -48,8 +67,10 @@ for skill_id, skill_display_src in skill_display_srcs.items():
     last_index = 0
     while last_index + 1 in skill_src:
         last_index += 1
-    if last_index == 0: continue
-    last_level = skill_src[last_index]
+    if last_index == 0:
+        last_level = skill_src
+    else:
+        last_level = skill_src[last_index]
     if 'effect_list' not in last_level: continue
     last_effects = last_level['effect_list']
 
@@ -78,11 +99,16 @@ for skill_id, skill_display_src in skill_display_srcs.items():
         print('ships', ship_names, ':', skill_display_src['name'], 'skill_id', skill_id, ': weapon_ids', weapon_ids)
     
     filename_out = 'skill_anim_out/bullet_pattern_skill_%d.gif' % skill_id
-    animator = anim.GifAnimator(color_count=32)
+    color_count = 32
+    if skill_id in color_count_override:
+        color_count = color_count_override[skill_id]
+    animator = anim.GifAnimator(color_count=color_count)
+    force_no_repeat = skill_id in force_no_repeats
     if not os.path.exists(filename_out) or redo_condition(skill_src, skill_display_src, weapon_ids):
         try:
-            barrage_anim.create_barrage_anim(filename_out, animator, weapon_ids, world_size, ppu,
-                                             range_limit = range_limit, max_duration = max_duration, min_pad_duration = pad_duration)
+            barrage_anim.create_barrage_anim(filename_out, animator, weapon_ids, world_size, ppu = ppu,
+                                             range_limit = range_limit, max_duration = max_duration, min_pad_duration = pad_duration,
+                                             force_no_repeat = force_no_repeat)
         except:
             print(traceback.print_exc())
             #print(sys.exc_info(), traceback.print_exc())

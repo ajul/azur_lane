@@ -37,9 +37,13 @@ bullet_models = {
     'hwxgz_2' : ('hwxgz_2', 4, 2),
     'hwxqb_1' : ('hwxqb_1', 3, 3),
     'hwxqb_2' : ('hwxqb_2', 4, 2),
-    'bullet1' : ('bullet1', 6, 2), # other AP
-    'bullet2' : ('bullet2', 6, 2), # other HE
+    'bullet1' : ('bullet_UK', 6, 2), # Suruga normal
+    'bullet2' : ('kuasheAP', 6, 2), # Suruga AP
     'Al_Flower01' : ('Al_Flower01', 3, 3),
+    
+    'BomberbombBlack' : ('BomberbombBlack', 4, 1.5), # Hermes
+    'BomberbombWhite' : ('BomberbombWhite', 4, 1.5), # Hermes
+    'BomberbombKnife' : ('BomberbombKnife', 4, 1.5), # Hermes
 }
 
 tints = {
@@ -139,15 +143,16 @@ class Vector():
         return '(%f, %f, %f)' % (self.x, self.y, self.z)
 
 class Bullet():
-    def __init__(self, model, delay, position0, velocity0, gravity, accelerations, distance):
-        self.model = model
+    def __init__(self, bullet_src, delay, position0, velocity0, gravity, distance, ppu):
+        self.model = get_model(bullet_src, ppu)
         self.delay = delay
         self.position0 = position0
         self.velocity0 = velocity0
         self.gravity = gravity
         self.accelerations = []
-        for k in sorted(accelerations.keys()):
-            raw_acceleration = accelerations[k]
+        self.is_bomb = 'airdrop' in bullet_src['extra_param'] and bullet_src['extra_param']['airdrop']
+        for k in sorted(bullet_src['acceleration'].keys()):
+            raw_acceleration = bullet_src['acceleration'][k]
             acceleration = copy.deepcopy(raw_acceleration)
             if 'flip' in raw_acceleration and raw_acceleration['flip'] and self.velocity0.ground_angle_degrees() >= 0.0:
                 acceleration['v'] *= -1.0
@@ -155,7 +160,7 @@ class Bullet():
                 
         self.distance = distance
         
-        if gravity != 0:
+        if gravity != 0 and not self.is_bomb:
             lifetime = distance / self.velocity0.ground_magnitude() / velocity_factor
             self.velocity0.y = -0.5 * gravity  * acceleration_factor * lifetime
         
@@ -174,6 +179,8 @@ class Bullet():
 
     def update_model_rotation(self):
         draw_angle = self.velocity.draw_angle_degrees()
+        if self.is_bomb:
+            draw_angle += 180.0
         if draw_angle != self.previous_draw_angle:
             self.model_rotated = self.model.rotate(draw_angle, Image.BICUBIC, True)
         self.previous_draw_angle = draw_angle
@@ -185,9 +192,14 @@ class Bullet():
         else:
             return
         self.position += self.velocity * dt * velocity_factor
-        if (self.position - self.position0).ground_magnitude_squared() > self.distance * self.distance:
-            self.alive = False
-            return
+        if self.gravity < 0:
+            if self.position.y <= 0.0:
+                self.alive = False
+                return
+        else:
+            if (self.position - self.position0).ground_magnitude_squared() > self.distance * self.distance:
+                self.alive = False
+                return
         
         if len(self.accelerations) > 0:
             while self.acceleration_index + 1 < len(self.accelerations):
@@ -226,8 +238,6 @@ class Barrage():
     def __init__(self, barrage_src, bullet_src, extra_delay, start_pos, target_pos, ppu, range_limit, hash_index):
         if barrage_src['trans_ID'] >= 0:
             raise NotImplementedError('trans_ID not implemented.')
-    
-        model = get_model(bullet_src, ppu)
         
         random_offset_x = 0
         if 'randomOffsetX' in bullet_src['extra_param']:
@@ -238,7 +248,6 @@ class Barrage():
             random_offset_z = bullet_src['extra_param']['randomOffsetZ']
         
         speed = bullet_src['velocity']
-        accelerations = bullet_src['acceleration']
 
         parallel = barrage_src['primal_repeat'] + 1
         serial = barrage_src['senior_repeat'] + 1
@@ -289,8 +298,22 @@ class Barrage():
                     distance = aim_vector.magnitude()
             
                 delay = first_delay + serial_delay * serial_idx + parallel_delay * parallel_idx + all_delay * bullet_idx
-                x0 = start_pos.x + offset_x + delta_offset_x * parallel_idx
-                z0 = start_pos.z + offset_z + delta_offset_z * parallel_idx
+                if 'airdrop' in bullet_src['extra_param'] and bullet_src['extra_param']['airdrop']:
+                    x0 = random_target_pos.x
+                    y0 = 0.0
+                    z0 = random_target_pos.z
+                else:
+                    x0 = start_pos.x
+                    y0 = 0.0
+                    z0 = start_pos.z
+                x0 += offset_x + delta_offset_x * parallel_idx
+                z0 += offset_z + delta_offset_z * parallel_idx
+                if 'offsetX' in bullet_src['extra_param']:
+                    x0 += bullet_src['extra_param']['offsetX']
+                if 'offsetY' in bullet_src['extra_param']:
+                    y0 += bullet_src['extra_param']['offsetY']
+                if 'offsetZ' in bullet_src['extra_param']:
+                    z0 += bullet_src['extra_param']['offsetZ']
                 angle = offset_angle + delta_angle * parallel_idx
                 if has_random_angle:
                     h = hash_ints(*base_hash_tuple, 2)
@@ -298,7 +321,7 @@ class Barrage():
                 angle += aim_angle
                 v0 = Vector.from_angle(angle) * speed
                 
-                self.bullets.append(Bullet(model, delay, Vector(x0, 0, z0), v0, gravity, accelerations, distance))
+                self.bullets.append(Bullet(bullet_src, delay, Vector(x0, y0, z0), v0, gravity, distance, ppu))
                 bullet_idx += 1
         
         self.random_count = 0
@@ -322,10 +345,11 @@ class Barrage():
         return any(bullet.alive for bullet in self.bullets)
 
 # weapon_id elements may be a 2-tuple where the second element is an extra delay.
-def create_barrage_anim(filename_out, animator, weapon_ids, world_size, ppu, min_duration = 0.0, max_duration = 30.0, range_limit = None, min_pad_duration = 0.0, time_stretch = 1):
+def create_barrage_anim(filename_out, animator, weapon_ids, world_size, ppu, min_duration = 0.0, max_duration = 30.0, range_limit = None, min_pad_duration = 0.0, time_stretch = 1, force_no_repeat = False):
     image_res = (ppu * world_size[0], ppu * world_size[1] // camera_slope)
     start_pos = Vector(5, 0.0, world_size[1] / 2)
     target_pos = Vector(world_size[0] - 15, 0.0, world_size[1] / 2)
+    bomb_target_pos = Vector(world_size[0] / 2, 0.0, world_size[1] / 2)
     
     frame_filenames = []
     frame_index = 0
@@ -350,7 +374,10 @@ def create_barrage_anim(filename_out, animator, weapon_ids, world_size, ppu, min
             while barrage_index in weapon_src['barrage_ID']:
                 barrage_src = barrage_srcs[weapon_src['barrage_ID'][barrage_index]]
                 bullet_src = bullet_srcs[weapon_src['bullet_ID'][barrage_index]]
-                barrage = Barrage(barrage_src, bullet_src, extra_delay, start_pos, target_pos, ppu, range_limit, hash_index = hash_index)
+                if 'airdrop' in bullet_src['extra_param'] and bullet_src['extra_param']['airdrop']:
+                    barrage = Barrage(barrage_src, bullet_src, extra_delay, start_pos, bomb_target_pos, ppu, range_limit, hash_index = hash_index)
+                else:
+                    barrage = Barrage(barrage_src, bullet_src, extra_delay, start_pos, target_pos, ppu, range_limit, hash_index = hash_index)
                 if barrage.random_count > 0:
                     if random_count == 0: random_count = barrage.random_count
                     else: random_count = min(random_count, barrage.random_count)
@@ -393,7 +420,7 @@ def create_barrage_anim(filename_out, animator, weapon_ids, world_size, ppu, min
     
     frame_index, random_count = draw_iteration(frame_index, 0)
     
-    if random_count > 0:
+    if random_count > 0 and not force_no_repeat:
         repeat_count = max(1, 5 - random_count)
         for repeat_idx in range(repeat_count):
             frame_index, _ = draw_iteration(frame_index, repeat_idx + 1)
