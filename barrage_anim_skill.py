@@ -1,6 +1,4 @@
-import anim
-import barrage_anim
-import load_lua
+from azurlane import anim, barrage, load_lua
 import os
 import sys
 import traceback
@@ -11,10 +9,6 @@ skill_data_srcs = load_lua.load_sharecfg('skill_data_template', key_type=int)
 skill_display_srcs = load_lua.load_sharecfg('skill_data_display', key_type=int)
 ship_data_srcs = load_lua.load_sharecfg('ship_data_template', key_type=int)
 ship_stats_srcs = load_lua.load_sharecfg('ship_data_statistics', key_type=int)
-
-range_limit = 80
-max_duration = 10.0
-pad_duration = 0.5
 
 world_size = (75, 50)
 # pixels per in-game unit
@@ -28,11 +22,9 @@ color_count_override = {
     12810 : 64,
 }
 
-force_no_repeats = [12800, 12810]
-
 def redo_condition(skill_src, skill_display_src, weapon_ids):
     #if skill_src['id'] in [12800, 12810]: return True
-    return False
+    return True
 
 for ship_id, ship_data_src in ship_data_srcs.items():
     for skill_id in ship_data_src['buff_list_display'].values():
@@ -99,18 +91,18 @@ for skill_id, skill_display_src in skill_display_srcs.items():
         print('ships', ship_names, ':', skill_display_src['name'], 'skill_id', skill_id, ': weapon_ids', weapon_ids)
     
     filename_out = 'skill_anim_out/bullet_pattern_skill_%d.gif' % skill_id
+    
     color_count = 32
     if skill_id in color_count_override:
         color_count = color_count_override[skill_id]
     animator = anim.GifAnimator(color_count=color_count)
-    force_no_repeat = skill_id in force_no_repeats
+    
     if not os.path.exists(filename_out) or redo_condition(skill_src, skill_display_src, weapon_ids):
         try:
-            barrage_anim.create_barrage_anim(filename_out, animator, weapon_ids, world_size, ppu = ppu,
-                                             range_limit = range_limit, max_duration = max_duration, min_pad_duration = pad_duration,
-                                             force_no_repeat = force_no_repeat)
+            barrage.create_barrage_anim(animator, weapon_ids, world_size)
         except:
             print(traceback.print_exc())
             #print(sys.exc_info(), traceback.print_exc())
+        animator.write_animation(filename_out)
     
 

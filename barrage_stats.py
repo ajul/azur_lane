@@ -1,7 +1,6 @@
-import load_lua
+from azurlane import load_lua, skill
 import common
 import copy
-import skill
 
 barrage_srcs = load_lua.load_sharecfg('barrage_template')
 bullet_srcs = load_lua.load_sharecfg('bullet_template')

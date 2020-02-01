@@ -1,12 +1,10 @@
-import anim
-import barrage_anim
-import load_lua
+from azurlane import anim, barrage, load_lua
 import sys
 
 equip_srcs = load_lua.load_sharecfg('equip_data_statistics', key_type=int)
-weapon_srcs = load_lua.load_sharecfg('weapon_property')
-barrage_srcs = load_lua.load_sharecfg('barrage_template')
-bullet_srcs = load_lua.load_sharecfg('bullet_template')
+weapon_srcs = load_lua.load_sharecfg('weapon_property', key_type=int)
+barrage_srcs = load_lua.load_sharecfg('barrage_template', key_type=int)
+bullet_srcs = load_lua.load_sharecfg('bullet_template', key_type=int)
 
 world_size = (75, 30)
 # pixels per in-game unit
@@ -60,4 +58,5 @@ for equip_id, equip_src in equip_srcs.items():
         seen_patterns[pattern] = equip_id
         filename_out = 'weapon_anim_out/bullet_pattern_equip_%d.gif' % equip_src['id']
         animator = anim.GifAnimator()
-        barrage_anim.create_barrage_anim(filename_out, animator, [weapon_src['id']], world_size, ppu, min_duration = duration, max_duration = duration)
+        barrage.create_barrage_anim(filename_out, animator, [weapon_src['id']], world_size, ppu = ppu)
+        animator.write_animation(filename_out)

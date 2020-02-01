@@ -81,7 +81,7 @@ class Bullet():
     def __init__(self, weapon_set, bullet_src, delay, position0, velocity0, max_range, target_pos):
         self.weapon_set = weapon_set
         self.bullet_src = bullet_src
-        self.model = get_model(self.bullet_src, self.weapon_set.ppu)
+        self.model = get_model(self.bullet_src, self.weapon_set.render_ppu)
         self.delay = delay
         self.position0 = position0
         self.velocity0 = velocity0
@@ -89,6 +89,9 @@ class Bullet():
         self.target_pos = target_pos
         self.accelerations = []
         for k in sorted(bullet_src['acceleration'].keys()):
+            if k == 'tracker':
+                print('Tracking not currently represented, disabling.')
+                continue
             raw_acceleration = bullet_src['acceleration'][k]
             acceleration = copy.deepcopy(raw_acceleration)
             if 'flip' in raw_acceleration and raw_acceleration['flip'] and self.velocity0.ground_angle_degrees() >= 0.0:
@@ -176,9 +179,9 @@ class Bullet():
         if not self.fired: return frame
         if not self.alive: return frame
         model_res_x, model_res_z = self.model_rotated.size
-        x_corner_px = int(round(self.position.x * self.weapon_set.ppu - model_res_x / 2))
+        x_corner_px = int(round(self.position.x * self.weapon_set.render_ppu - model_res_x / 2))
         # flip z
-        z_corner_px = int(round(frame.size[1] - (self.position.z / camera_slope + self.position.y) * self.weapon_set.ppu - model_res_z / 2))
+        z_corner_px = int(round(frame.size[1] - (self.position.z / camera_slope + self.position.y) * self.weapon_set.render_ppu - model_res_z / 2))
         overlay = Image.new('RGBA', frame.size)
         overlay.paste(self.model_rotated, (x_corner_px, z_corner_px))
         return Image.alpha_composite(frame, overlay)
@@ -277,10 +280,12 @@ class Pattern():
 
 # Not resettable.
 class WeaponSet():
-    def __init__(self, weapon_ids, world_size, border_size, ppu, start_pos, target_pos, seed):
+    def __init__(self, weapon_ids, world_size, border_size, output_ppu, supersample, start_pos, target_pos, seed):
         self.world_size = world_size
         self.border_size = border_size
-        self.ppu = ppu
+        self.output_ppu = output_ppu
+        self.render_ppu = output_ppu * supersample
+        self.supersample = supersample
         self.start_pos = start_pos
         self.target_pos = target_pos
         self.bomb_target_pos = Vector(world_size[0] / 2, 0.0, world_size[1] / 2)
@@ -323,15 +328,17 @@ class WeaponSet():
                 v.z < self.world_size[1] + self.border_size)
     
     def draw(self, animator, pad_duration = None):
-        image_res = (self.ppu * self.world_size[0], self.ppu * self.world_size[1] // camera_slope)
+        render_res = (self.render_ppu * self.world_size[0], self.render_ppu * self.world_size[1] // camera_slope)
+        output_res = (self.output_ppu * self.world_size[0], self.output_ppu * self.world_size[1] // camera_slope)
         dt = 1.0 / animator.fps
         
         while any(pattern.alive() for pattern in self.patterns):
             self.t += dt
-            frame = Image.new('RGBA', image_res, color = background_color)
+            frame = Image.new('RGBA', render_res, color = background_color)
             for pattern in self.patterns:
                 frame = pattern.draw(frame)
                 pattern.update(self.t, dt)
+            frame = frame.resize(output_res, Image.BOX)
             animator.write_frame(frame)
             
         if pad_duration is not None:
@@ -343,18 +350,18 @@ class WeaponSet():
             
             num_pad_frames = math.ceil((pad_duration + max_delta) * animator.fps)
             for i in range(num_pad_frames):
-                frame = Image.new('RGBA', image_res, color = background_color)
+                frame = Image.new('RGBA', output_res, color = background_color)
                 animator.write_frame(frame)
 
 # weapon_id elements may be a 2-tuple where the second element is an extra delay.
 # Animations with random elements will be repeated as long as they are not estimated to exceed max_repeat_duration (not including pads).
-def create_barrage_anim(animator, weapon_ids, world_size, ppu = 10, max_repeat_duration = 6.0, pad_duration = 0.5):
+def create_barrage_anim(animator, weapon_ids, world_size, ppu = 10, supersample = 2, max_repeat_duration = 6.0, pad_duration = 0.5):
     start_pos = Vector(5, 0.0, world_size[1] / 2)
-    target_pos = Vector(world_size[0] - 15, 0.0, world_size[1] / 2)
+    target_pos = Vector(world_size[0] - 25, 0.0, world_size[1] / 2)
     border_size = 5
     seed = [weapon_ids, 0]
     
-    weapon_set = WeaponSet(weapon_ids, world_size, border_size, ppu, start_pos, target_pos, seed)
+    weapon_set = WeaponSet(weapon_ids, world_size, border_size, ppu, supersample, start_pos, target_pos, seed)
     weapon_set.draw(animator, pad_duration)
     
     if weapon_set.rng_count > 0:
@@ -362,7 +369,7 @@ def create_barrage_anim(animator, weapon_ids, world_size, ppu = 10, max_repeat_d
         total_time = weapon_set.t
         while total_time + last_iteration_time <= max_repeat_duration:
             seed[1] += 1
-            weapon_set = WeaponSet(weapon_ids, world_size, border_size, ppu, start_pos, target_pos, seed)
+            weapon_set = WeaponSet(weapon_ids, world_size, border_size, ppu, supersample, start_pos, target_pos, seed)
             weapon_set.draw(animator, pad_duration)
             last_iteration_time = weapon_set.t
             total_time += last_iteration_time
