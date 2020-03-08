@@ -1,16 +1,18 @@
-from azurlane import load_lua, skill
+import azurlane.load_lua
+import azurlane.buff
+import azurlane.skill
 import common
 import copy
 
-barrage_srcs = load_lua.load_sharecfg('barrage_template')
-bullet_srcs = load_lua.load_sharecfg('bullet_template')
-weapon_srcs = load_lua.load_sharecfg('weapon_property')
-skill_data_srcs = load_lua.load_sharecfg('skill_data_template')
-skill_display_srcs = load_lua.load_sharecfg('skill_data_display')
+barrage_srcs = azurlane.load_lua.load_sharecfg('barrage_template')
+bullet_srcs = azurlane.load_lua.load_sharecfg('bullet_template')
+weapon_srcs = azurlane.load_lua.load_sharecfg('weapon_property')
+skill_data_srcs = azurlane.load_lua.load_sharecfg('skill_data_template')
+skill_display_srcs = azurlane.load_lua.load_sharecfg('skill_data_display')
 
 seen_weapon_sets = {}
 for skill_id, skill_display_src in skill_display_srcs.items():
-    last_effects = skill.get_last_effects(skill_id)
+    last_effects = azurlane.skill.get_last_effects(skill_id)
 
     if last_effects is None:
         continue
@@ -22,10 +24,10 @@ for skill_id, skill_display_src in skill_display_srcs.items():
     if len(weapon_ids) == 0: continue
     ship_names = []
     rounded_skill_id = (skill_id // 10) * 10
-    if skill_id in skill.skill_to_ship_names_map:
-        ship_names = skill.skill_to_ship_names_map[skill_id]
-    elif rounded_skill_id in skill.skill_to_ship_names_map:
-        ship_names = skill.skill_to_ship_names_map[rounded_skill_id]
+    if skill_id in azurlane.skill.skill_to_ship_names_map:
+        ship_names = azurlane.skill.skill_to_ship_names_map[skill_id]
+    elif rounded_skill_id in azurlane.skill.skill_to_ship_names_map:
+        ship_names = azurlane.skill.skill_to_ship_names_map[rounded_skill_id]
 
     # (damage, bullet_id) -> num_bullets
 
@@ -90,7 +92,8 @@ for skill_id, skill_display_src in skill_display_srcs.items():
                 buff_level = buff['level']
             else:
                 buff_level = 0
-            s += '\n        %0.2f%% buff %d (lv %d)' % (buff_chance, buff_id, buff_level)
+            buff_desc = azurlane.buff.describe_buff(buff_id, damage)
+            s += '\n        %0.2f%% buff %d (lv %d): %s' % (buff_chance, buff_id, buff_level, buff_desc)
             buff_index += 1
         print(s)
         
