@@ -4,7 +4,7 @@ import os
 import re
 import copy
 
-server = 'EN'
+server = 'en-US'
 src_dir = '../AzurLaneScripts'
 lua = LuaRuntime(unpack_returned_tuples=True)
 

@@ -58,5 +58,5 @@ for equip_id, equip_src in equip_srcs.items():
         seen_patterns[pattern] = equip_id
         filename_out = 'weapon_anim_out/bullet_pattern_equip_%d.gif' % equip_src['id']
         animator = anim.GifAnimator()
-        barrage.create_barrage_anim(filename_out, animator, [weapon_src['id']], world_size, ppu = ppu)
+        barrage.create_barrage_anim(animator, [weapon_src['id']], world_size, ppu = ppu)
         animator.write_animation(filename_out)

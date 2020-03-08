@@ -6,3 +6,6 @@
 /bullet_models/*.png
 /enemy_stats_out/*.txt
 /items/*.png
+/Texture2D
+/azurlane/__pycache__
+/source_images

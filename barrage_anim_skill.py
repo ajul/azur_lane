@@ -3,7 +3,7 @@ import os
 import sys
 import traceback
 
-load_lua.server = 'EN'
+load_lua.server = 'en-US'
 
 skill_data_srcs = load_lua.load_sharecfg('skill_data_template', key_type=int)
 skill_display_srcs = load_lua.load_sharecfg('skill_data_display', key_type=int)
@@ -23,8 +23,8 @@ color_count_override = {
 }
 
 def redo_condition(skill_src, skill_display_src, weapon_ids):
-    #if skill_src['id'] in [12800, 12810]: return True
-    return True
+    if skill_src['id'] == 13020: return True
+    return False
 
 for ship_id, ship_data_src in ship_data_srcs.items():
     for skill_id in ship_data_src['buff_list_display'].values():
@@ -50,7 +50,7 @@ skill_display_srcs[40001] = {
 
 for skill_id, skill_display_src in skill_display_srcs.items():
     #if skill_id < 100000: continue
-    #if skill_id not in [29212]: continue
+    #if skill_id not in [29511, 29512]: continue
     try:
         skill_src = load_lua.load_skill(skill_id)
     except FileNotFoundError:

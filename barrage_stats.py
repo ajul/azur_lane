@@ -38,7 +38,7 @@ for skill_id, skill_display_src in skill_display_srcs.items():
             continue
         weapon_src = weapon_srcs[weapon_id]
         barrage_index = 1
-        while barrage_index in weapon_src['barrage_ID']:
+        while barrage_index in weapon_src['barrage_ID'] and barrage_index in weapon_src['bullet_ID']:
             barrage_id = weapon_src['barrage_ID'][barrage_index]
             barrage_ids.append(barrage_id)
             barrage_src = barrage_srcs[barrage_id]
@@ -74,6 +74,10 @@ for skill_id, skill_display_src in skill_display_srcs.items():
             net_damage[0], net_damage[1], net_damage[2])
         if bullet_src['pierce_count'] > 0:
             s += '\n        pierce %d' % bullet_src['pierce_count']
+        if 'tracker' in bullet_src['acceleration']:
+            s += '\n        tracking range %d' % bullet_src['acceleration']['tracker']['range']
+        if 'range' in bullet_src['hit_type']:
+            s += '\n        splash range %d' % bullet_src['hit_type']['range']
         buff_index = 1
         while buff_index in bullet_src['attach_buff']:
             buff = bullet_src['attach_buff'][buff_index]

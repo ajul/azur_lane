@@ -103,6 +103,18 @@ events = {
             [2.0, 2.0, 2.5,],
         ]),
         'darkred'),
+    'no_no_avrora' : (
+        'Northern Overture (no Avrora, no Chapayev)',
+        numpy.array([
+            [2.0, 2.0, 2.5, 2.5],
+        ]),
+        'goldenrod'),
+    'no_avrora' : (
+        'Northern Overture (need Avrora, no Chapayev)',
+        numpy.array([
+            [1.5, 2.0, 2.0, 2.5, 2.5],
+        ]),
+        'red'),
 }
 
 max_calc_draws = 2000
@@ -164,7 +176,7 @@ def compute_event(event_rates, max_draws):
 
 # Plot.
 
-annotation_offsets = [0.5, 4.0]
+annotation_offsets = [5.0, 0.5]
 annotation_offset_index = 0
 
 def plot(ax, legend, shortname, is_primary):
@@ -194,7 +206,7 @@ def plot(ax, legend, shortname, is_primary):
 figsize = (16, 9)
 dpi = 120
 
-event_shortnames = [ 'dc_con_drop', 'dc_con', ]
+event_shortnames = [ 'no_no_avrora', 'no_avrora', ]
 compare_shortnames = ['2%']
 
 max_calc_cubes = max_calc_draws * 2
@@ -223,7 +235,7 @@ ax.set_yticklabels(['1 in 2\n(median)'] + ['%d in %d' % (y-1, y) for y in yticks
 ax.grid(which = 'major')
 ax.grid(which = 'minor', linewidth=0.25)
 
-ax.set_title('Drawing all %s event ships' % 'Divergent Chessboard Rerun')
+ax.set_title('Drawing all %s event ships' % 'Northern Overture')
 ax.legend(legend)
 
 plt.savefig('cubes.png', dpi = dpi, bbox_inches = "tight")

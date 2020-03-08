@@ -39,10 +39,14 @@ bullet_models = {
     'bullet1' : ('bullet_UK', 6, 2), # Suruga normal
     'bullet2' : ('kuasheAP', 6, 2), # Suruga AP
     'Al_Flower01' : ('Al_Flower01', 3, 3),
+    'zimudan' : ('zimudan', 3, 3),
     
     'BomberbombBlack' : ('BomberbombBlack', 4, 1.5), # Hermes
     'BomberbombWhite' : ('BomberbombWhite', 4, 1.5), # Hermes
     'BomberbombKnife' : ('BomberbombKnife', 4, 1.5), # Hermes
+    
+    'bingzhui' : ('hwxqb_1', 3, 3), # placeholder for Sovetskaya Rossiya
+    'bingzhuibig' : ('hwxqb_1', 5, 5), # placeholder for Sovetskaya Rossiya
 }
 
 tints = {
@@ -78,8 +82,9 @@ def put_on_background(image):
     return Image.alpha_composite(bg, image)
 
 class Bullet():
-    def __init__(self, weapon_set, bullet_src, delay, position0, velocity0, max_range, target_pos):
+    def __init__(self, weapon_set, weapon_src, bullet_src, delay, position0, velocity0, max_range, target_pos):
         self.weapon_set = weapon_set
+        self.weapon_src = weapon_src
         self.bullet_src = bullet_src
         self.model = get_model(self.bullet_src, self.weapon_set.render_ppu)
         self.delay = delay
@@ -103,7 +108,7 @@ class Bullet():
         self.is_bomb = bullet_src['extra_param'].get('airdrop', False)
         self.gravity = bullet_src['extra_param'].get('gravity', 0.0) * acceleration_factor
         # Arching shot.
-        if self.gravity < 0.0 and not self.is_bomb:
+        if self.gravity < 0.0 and self.position0.y == 0.0:
             lifetime = (self.target_pos - self.position0).ground_magnitude() / self.velocity0.ground_magnitude()
             self.velocity0.y = -0.5 * self.gravity * lifetime
     
@@ -119,6 +124,9 @@ class Bullet():
         self.acceleration_sign = 1
         self.previous_draw_angle_degrees = None
         self.update_model_rotation()
+        self.shrapnel = []
+        
+        self.entered_bounds = False
 
     def update_model_rotation(self):
         draw_angle_degrees = self.velocity.draw_angle_degrees()
@@ -131,6 +139,9 @@ class Bullet():
     def update(self, t, dt):
         if t < self.delay: return
         
+        for pattern in self.shrapnel:
+            pattern.update(t, dt)
+        
         if not self.alive: return
         
         self.fired = True
@@ -138,12 +149,12 @@ class Bullet():
         dt = min(dt, t - self.delay)
         self.position += self.velocity * dt
         if self.gravity < 0.0:
-            if self.position.y <= 0.0:
-                self.alive = False
+            if self.position.y <= 0.0 or ('shrapnel' in self.bullet_src['extra_param'] and self.velocity.y < 0.0):
+                self.die(t)
                 return
         else:
             if (self.position - self.position0).ground_magnitude_squared() > self.max_range * self.max_range:
-                self.alive = False
+                self.die(t)
                 return
         
         if len(self.accelerations) > 0:
@@ -164,34 +175,55 @@ class Bullet():
             if 'v' in current_acceleration:
                 self.velocity += self.velocity.ground_cross().normalized() * current_acceleration['v'] * dt
         else:
-            if not self.weapon_set.in_bounds(self.position):
-                self.alive = False
+            in_bounds = self.weapon_set.in_bounds(self.position)
+            if self.entered_bounds and not in_bounds:
+                self.die(t)
+            elif not self.entered_bounds and in_bounds:
+                self.in_bounds = True
 
         self.velocity.y += self.gravity * dt
         
         self.update_model_rotation()
     
-    # Includes any children (TODO).
+    def die(self, t):
+        self.alive = False
+        if 'shrapnel' in self.bullet_src['extra_param']:
+            shrapnel_src = self.bullet_src['extra_param']['shrapnel']
+            shrapnel_index = 1
+            while shrapnel_index in shrapnel_src:
+                bullet_id = shrapnel_src[shrapnel_index]['bullet_ID']
+                barrage_id = shrapnel_src[shrapnel_index]['barrage_ID']
+                bullet_src = bullet_srcs[bullet_id]
+                barrage_src = barrage_srcs[barrage_id]
+                self.shrapnel.append(Pattern(self.weapon_set, weapon_src, barrage_src, bullet_src, t, self))
+                shrapnel_index += 1
+    
     def any_alive(self):
-        return self.alive
+        return self.alive or any(pattern.alive() for pattern in self.shrapnel)
 
     def draw(self, frame):
         if not self.fired: return frame
-        if not self.alive: return frame
-        model_res_x, model_res_z = self.model_rotated.size
-        x_corner_px = int(round(self.position.x * self.weapon_set.render_ppu - model_res_x / 2))
-        # flip z
-        z_corner_px = int(round(frame.size[1] - (self.position.z / camera_slope + self.position.y) * self.weapon_set.render_ppu - model_res_z / 2))
-        overlay = Image.new('RGBA', frame.size)
-        overlay.paste(self.model_rotated, (x_corner_px, z_corner_px))
-        return Image.alpha_composite(frame, overlay)
+        
+        if self.alive:
+            model_res_x, model_res_z = self.model_rotated.size
+            x_corner_px = int(round(self.position.x * self.weapon_set.render_ppu - model_res_x / 2))
+            # flip z
+            z_corner_px = int(round(frame.size[1] - (self.position.z / camera_slope + self.position.y) * self.weapon_set.render_ppu - model_res_z / 2))
+            overlay = Image.new('RGBA', frame.size)
+            overlay.paste(self.model_rotated, (x_corner_px, z_corner_px))
+            return Image.alpha_composite(frame, overlay)
+        else:
+            for pattern in self.shrapnel:
+                frame = pattern.draw(frame)
+            return frame
 
 class Pattern():
-    def __init__(self, weapon_set, barrage_src, bullet_src, extra_delay):
+    def __init__(self, weapon_set, weapon_src, barrage_src, bullet_src, extra_delay, parent_bullet = None):
         self.weapon_set = weapon_set
         self.barrage_src = barrage_src
         self.bullet_src = bullet_src
         self.extra_delay = extra_delay
+        self.parent_bullet = parent_bullet
         
         self.bullets = []
     
@@ -200,8 +232,6 @@ class Pattern():
         
         random_offset_x = bullet_src['extra_param'].get('randomOffsetX', 0)
         random_offset_z = bullet_src['extra_param'].get('randomOffsetZ', 0)
-        
-        speed = bullet_src['velocity'] * velocity_factor
 
         parallel = barrage_src['primal_repeat'] + 1
         serial = barrage_src['senior_repeat'] + 1
@@ -239,30 +269,46 @@ class Pattern():
                 delay = first_delay + serial_delay * serial_idx + parallel_delay * parallel_idx + all_delay * bullet_idx
                 self.weapon_set.delays.append(delay)
                 
-                if bullet_src['extra_param'].get('airdrop', False):
-                    random_target_pos = self.weapon_set.bomb_target_pos + random_offset
-                    position0 = random_target_pos.copy()
-                else:
-                    position0 = self.weapon_set.start_pos.copy()
+                speed = bullet_src['velocity'] + self.weapon_set.random_centered(bullet_src['extra_param'].get('velocity_offset', 0.0)) * 2.0
+                
+                if self.parent_bullet:
+                    position0 = self.parent_bullet.position.copy()
                     random_target_pos = self.weapon_set.target_pos + random_offset
+                    angle0 = self.parent_bullet.velocity.ground_angle() + delta_angle * parallel_idx
+                    if offset_angle > 0:
+                        angle0 += self.weapon_set.random_centered(offset_angle) # ?
+                else:
+                    if bullet_src['extra_param'].get('airdrop', False):
+                        if weapon_src['aim_type'] == 1:
+                            random_target_pos = self.weapon_set.target_pos + random_offset
+                        else:
+                            random_target_pos = self.weapon_set.start_pos + random_offset
+                        
+                        position0 = random_target_pos.copy()
+                    else:
+                        position0 = self.weapon_set.start_pos.copy()
+                        random_target_pos = self.weapon_set.target_pos + random_offset
+                    position0.x += offset_x + delta_offset_x * parallel_idx
+                    position0.z += offset_z + delta_offset_z * parallel_idx
+                    
+                    position0 += Vector(bullet_src['extra_param'].get('offsetX', 0.0),
+                                        bullet_src['extra_param'].get('offsetY', 0.0),
+                                        bullet_src['extra_param'].get('offsetZ', 0.0))
+                    
+                    #print(barrage_src['id'], position0)
+                    aim_vector = random_target_pos - position0
+                    aim_angle = aim_vector.ground_angle()
+                    
+                    angle0 = offset_angle + delta_angle * parallel_idx
+                    if has_random_angle:
+                        angle0 = self.weapon_set.random_centered(angle0)
+                    
+                    if weapon_src['aim_type'] == 1:
+                        angle0 += aim_angle
+                    
+                velocity0 = Vector.from_angle(angle0) * speed * velocity_factor
                 
-                aim_vector = random_target_pos - position0
-                aim_angle = aim_vector.ground_angle()
-                
-                position0.x += offset_x + delta_offset_x * parallel_idx
-                position0.z += offset_z + delta_offset_z * parallel_idx
-                
-                position0 += Vector(bullet_src['extra_param'].get('offsetX', 0.0),
-                                    bullet_src['extra_param'].get('offsetY', 0.0),
-                                    bullet_src['extra_param'].get('offsetZ', 0.0))
-                
-                angle0 = offset_angle + delta_angle * parallel_idx
-                if has_random_angle:
-                    angle0 = self.weapon_set.random_centered(angle0)
-                angle0 += aim_angle
-                velocity0 = Vector.from_angle(angle0) * speed
-                
-                bullet = Bullet(self.weapon_set, bullet_src, delay, position0, velocity0, max_range, random_target_pos)
+                bullet = Bullet(self.weapon_set, weapon_src, bullet_src, delay, position0, velocity0, max_range, random_target_pos)
                 self.bullets.append(bullet)
                 bullet_idx += 1
     
@@ -276,7 +322,7 @@ class Pattern():
         return frame
     
     def alive(self):
-        return any(bullet.alive for bullet in self.bullets)
+        return any(bullet.any_alive() for bullet in self.bullets)
 
 # Not resettable.
 class WeaponSet():
@@ -288,7 +334,6 @@ class WeaponSet():
         self.supersample = supersample
         self.start_pos = start_pos
         self.target_pos = target_pos
-        self.bomb_target_pos = Vector(world_size[0] / 2, 0.0, world_size[1] / 2)
         self.rng = random.Random(str(seed))
         self.rng_count = 0
         self.t = 0.0
@@ -307,7 +352,7 @@ class WeaponSet():
             while barrage_index in weapon_src['barrage_ID']:
                 barrage_src = barrage_srcs[weapon_src['barrage_ID'][barrage_index]]
                 bullet_src = bullet_srcs[weapon_src['bullet_ID'][barrage_index]]
-                pattern = Pattern(self, barrage_src, bullet_src, extra_delay)
+                pattern = Pattern(self, weapon_src, barrage_src, bullet_src, extra_delay)
                 self.patterns.append(pattern)
                 barrage_index += 1
     
