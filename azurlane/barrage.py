@@ -47,6 +47,8 @@ bullet_models = {
     
     'bingzhui' : ('hwxqb_1', 3, 3), # placeholder for Sovetskaya Rossiya
     'bingzhuibig' : ('hwxqb_1', 5, 5), # placeholder for Sovetskaya Rossiya
+    
+    'mofazidan02' : ('hwxgz_3', 3, 3),
 }
 
 tints = {
@@ -63,11 +65,15 @@ background_color = (34, 34, 34, 255)
 def get_model(bullet_src, ppu):
     model_name = bullet_src['modle_ID']
     #print(model_name)
+    
+    if model_name == '':
+        return Image.new('RGBA', (2, 2), (0, 0, 0, 0))
+
     filename, length, width = bullet_models[model_name]
     model = Image.open('bullet_models/%s.png' % filename)
-    new_res_x = round(ppu * length)
-    new_res_z = round(ppu * width)
-    result = model.resize((new_res_x, new_res_z), Image.LANCZOS)
+    out_res_x = round(ppu * length)
+    out_res_z = round(ppu * width)
+    result = model.resize((out_res_x, out_res_z), Image.LANCZOS)
     if model_name in tints:
         tint = tints[model_name]
         for y in range(result.size[1]):
@@ -146,6 +152,12 @@ class Bullet():
         
         self.fired = True
         
+        # TODO: not sure on exact order of shrapnel operations within frame
+        if 'lastTime' in self.bullet_src['extra_param']:
+            if t - self.delay >= self.bullet_src['extra_param']['lastTime']:
+                self.die(t)
+                return
+        
         dt = min(dt, t - self.delay)
         self.position += self.velocity * dt
         if self.gravity < 0.0:
@@ -195,7 +207,7 @@ class Bullet():
                 barrage_id = shrapnel_src[shrapnel_index]['barrage_ID']
                 bullet_src = bullet_srcs[bullet_id]
                 barrage_src = barrage_srcs[barrage_id]
-                self.shrapnel.append(Pattern(self.weapon_set, weapon_src, barrage_src, bullet_src, t, self))
+                self.shrapnel.append(Pattern(self.weapon_set, self.weapon_src, barrage_src, bullet_src, t, self))
                 shrapnel_index += 1
     
     def any_alive(self):
@@ -239,7 +251,7 @@ class Pattern():
         first_delay = barrage_src['first_delay'] + extra_delay
         all_delay = barrage_src['delay']
         serial_delay = barrage_src['senior_delay']
-        parallel_delay = barrage_src['delta_delay']
+        parallel_delay = 0 # barrage_src['delta_delay'] # doesn't actually do anything?
         
         has_random_angle = barrage_src.get('random_angle', False)
         offset_angle = math.radians(barrage_src['angle'])
@@ -272,11 +284,12 @@ class Pattern():
                 speed = bullet_src['velocity'] + self.weapon_set.random_centered(bullet_src['extra_param'].get('velocity_offset', 0.0)) * 2.0
                 
                 if self.parent_bullet:
+                    print(self.parent_bullet.position)
                     position0 = self.parent_bullet.position.copy()
                     random_target_pos = self.weapon_set.target_pos + random_offset
-                    angle0 = self.parent_bullet.velocity.ground_angle() + delta_angle * parallel_idx
-                    if offset_angle > 0:
-                        angle0 += self.weapon_set.random_centered(offset_angle) # ?
+                    angle0 = offset_angle + delta_angle * parallel_idx
+                    if has_random_angle:
+                        angle0 = self.weapon_set.random_centered(angle0)
                 else:
                     if bullet_src['extra_param'].get('airdrop', False):
                         if weapon_src['aim_type'] == 1:
@@ -307,6 +320,8 @@ class Pattern():
                         angle0 += aim_angle
                     
                 velocity0 = Vector.from_angle(angle0) * speed * velocity_factor
+                #print(barrage_src['id'], velocity0)
+                #print(barrage_src['id'], bullet_src['id'], position0)
                 
                 bullet = Bullet(self.weapon_set, weapon_src, bullet_src, delay, position0, velocity0, max_range, random_target_pos)
                 self.bullets.append(bullet)

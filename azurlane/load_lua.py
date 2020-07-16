@@ -61,3 +61,12 @@ def load_dungeon(dungeon_id):
         raw = f.read()
         processed = re.sub('Vector3\((.*?)\)', '{\g<1>}', raw)
         return convert_to_python_dict(lua.execute(processed))
+
+def load_stories(story_prefix):
+    story_dir = os.path.join(src_dir, server, 'gamecfg', 'story')
+    for filename in os.listdir(story_dir):
+        if filename.find(story_prefix) == 0:
+            path = os.path.join(story_dir, filename)
+            suffix = filename[len(story_prefix):-len('.lua')]
+            with open(path, encoding='utf-8') as f:
+                yield suffix, convert_to_python_dict(lua.execute(f.read()))
