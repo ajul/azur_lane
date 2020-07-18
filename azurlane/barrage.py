@@ -308,6 +308,11 @@ class Pattern():
                                         bullet_src['extra_param'].get('offsetY', 0.0),
                                         bullet_src['extra_param'].get('offsetZ', 0.0))
                     
+                    if weapon_src['type'] == 19: # unaimed BB barrages?
+                        random_target_pos = Vector(self.weapon_set.target_pos.x,
+                                                   position0.y,
+                                                   position0.z) + random_offset
+                        
                     #print(barrage_src['id'], position0)
                     aim_vector = random_target_pos - position0
                     aim_angle = aim_vector.ground_angle()
