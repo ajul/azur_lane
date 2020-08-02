@@ -1,5 +1,5 @@
 import common
-import load_lua
+from azurlane import load_lua
 
 fleet_tech_ship_src = load_lua.load_sharecfg('fleet_tech_ship_template', key_type=int)
 ship_data_src = load_lua.load_sharecfg('ship_data_statistics', key_type=int)

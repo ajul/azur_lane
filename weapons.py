@@ -1,10 +1,10 @@
-import load_lua
+import azurlane.load_lua
 import common
 import copy
 
-bullet_srcs = load_lua.load_sharecfg('bullet_template')
-weapon_srcs = load_lua.load_sharecfg('weapon_property')
-equip_srcs = load_lua.load_sharecfg('equip_data_statistics')
+bullet_srcs = azurlane.load_lua.load_sharecfg('bullet_template')
+weapon_srcs = azurlane.load_lua.load_sharecfg('weapon_property')
+equip_srcs = azurlane.load_lua.load_sharecfg('equip_data_statistics')
 
 seen_strings = set()
 
