@@ -5,7 +5,7 @@ import re
 import copy
 
 server = 'en-US'
-src_dir = '../AzurLaneScripts'
+src_dir = '../AzurLaneData'
 lua = LuaRuntime(unpack_returned_tuples=True)
 
 # If key_type is not None, top-level keys will be filtered to that type and sorted.
@@ -23,6 +23,13 @@ def convert_to_python_dict(lua_table, key_type = None):
             pv = v
         result[k] = pv
     return result
+
+def load_file(path):
+    with open(path, encoding='utf-8') as f:
+        s = f.read()
+        s = re.sub('Vector3\((.*?)\)', '{\g<1>}', s)
+        s = re.sub('AspectMode\.[A-Za-z]+', '"{\g<0>}"', s)
+        return convert_to_python_dict(lua.execute(s))
 
 def load_sharecfg(table_name, key_type = int, apply_base = True):
     path = os.path.join(src_dir, server, 'sharecfg', table_name + '.lua')
@@ -47,20 +54,15 @@ def load_sharecfg(table_name, key_type = int, apply_base = True):
 
 def load_skill(skill_id):
     path = os.path.join(src_dir, server, 'gamecfg', 'skill', 'skill_%d.lua' % skill_id)
-    with open(path, encoding='utf-8') as f:
-        return convert_to_python_dict(lua.execute(f.read()))
+    return load_file(path)
 
 def load_buff(buff_id):
     path = os.path.join(src_dir, server, 'gamecfg', 'buff', 'buff_%d.lua' % buff_id)
-    with open(path, encoding='utf-8') as f:
-        return convert_to_python_dict(lua.execute(f.read()))
+    return load_file(path)
 
 def load_dungeon(dungeon_id):
     path = os.path.join(src_dir, server, 'gamecfg', 'dungeon', '%d.lua' % dungeon_id)
-    with open(path, encoding='utf-8') as f:
-        raw = f.read()
-        processed = re.sub('Vector3\((.*?)\)', '{\g<1>}', raw)
-        return convert_to_python_dict(lua.execute(processed))
+    return load_file(path)
 
 def load_stories(story_prefix):
     story_dir = os.path.join(src_dir, server, 'gamecfg', 'story')
@@ -68,5 +70,4 @@ def load_stories(story_prefix):
         if filename.find(story_prefix) == 0:
             path = os.path.join(story_dir, filename)
             suffix = filename[len(story_prefix):-len('.lua')]
-            with open(path, encoding='utf-8') as f:
-                yield suffix, convert_to_python_dict(lua.execute(f.read()))
+            yield suffix, load_file(path)
