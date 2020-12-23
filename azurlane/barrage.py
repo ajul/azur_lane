@@ -161,7 +161,7 @@ class Bullet():
         dt = min(dt, t - self.delay)
         self.position += self.velocity * dt
         if self.gravity < 0.0:
-            if self.position.y <= 0.0 or ('shrapnel' in self.bullet_src['extra_param'] and self.velocity.y < 0.0):
+            if (self.position.y < 0.0 and self.velocity.y < 0.0) or ('shrapnel' in self.bullet_src['extra_param'] and self.velocity.y < 0.0):
                 self.die(t)
                 return
         else:

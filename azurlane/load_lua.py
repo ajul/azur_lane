@@ -28,13 +28,19 @@ def load_file(path):
     with open(path, encoding='utf-8') as f:
         s = f.read()
         s = re.sub('Vector3\((.*?)\)', '{\g<1>}', s)
-        s = re.sub('AspectMode\.[A-Za-z]+', '"{\g<0>}"', s)
+        s = re.sub('AspectMode\.[A-Za-z]+', '"\g<0>"', s)
         return convert_to_python_dict(lua.execute(s))
 
 def load_sharecfg(table_name, key_type = int, apply_base = True):
     path = os.path.join(src_dir, server, 'sharecfg', table_name + '.lua')
     with open(path, encoding='utf-8') as f:
-        lua.execute(f.read())
+        lua_input = f.read()
+        # something went strange with the decompile here
+        if table_name == 'weapon_property':
+            lua_input = re.sub('function \\(\\)', '', lua_input)
+            lua_input = re.sub('end\\(\\)', '', lua_input)
+            lua_input = re.sub('uv0', 'pg', lua_input)
+        lua.execute(lua_input)
         g = lua.globals()
 
         base_result = convert_to_python_dict(g.pg[table_name], key_type)

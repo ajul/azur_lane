@@ -1,5 +1,4 @@
-from azurlane import load_lua
-import common
+from azurlane import common, load_lua
 
 skill_data_srcs = load_lua.load_sharecfg('skill_data_template')
 skill_display_srcs = load_lua.load_sharecfg('skill_data_display')
@@ -10,6 +9,7 @@ ship_stats_srcs = load_lua.load_sharecfg('ship_data_statistics')
 skill_to_ship_names_map = {}
 
 for ship_id, ship_data_src in ship_data_srcs.items():
+    if not ship_data_src['buff_list_display']: continue
     for skill_id in ship_data_src['buff_list_display'].values():
         if skill_id not in skill_to_ship_names_map:
             skill_to_ship_names_map[skill_id] = set()
