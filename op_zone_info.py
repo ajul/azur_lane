@@ -20,7 +20,7 @@ for chapter_id, chapter_data in chapter_srcs.items():
         chapter_name = chapter_data['name']
         corruption = str(chapter_data['hazard_level'])
         ap_cost = str(chapter_data['enter_cost'])
-        if ap_cost == 0: continue
+        if ap_cost == '0': continue
 
         """
         if len(chapter_data['sairen_chapter']) > 0:

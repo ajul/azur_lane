@@ -32,11 +32,11 @@ def load_file(path):
         return convert_to_python_dict(lua.execute(s))
 
 def load_sharecfg(table_name, key_type = int, apply_base = True):
-    path = os.path.join(src_dir, server, 'sharecfg', table_name + '.lua')
+    path = os.path.join(src_dir, server, 'sharecfg', table_name.lower() + '.lua')
     with open(path, encoding='utf-8') as f:
         lua_input = f.read()
         # something went strange with the decompile here
-        if table_name == 'weapon_property':
+        if table_name in ['weapon_property', 'expedition_data_template']:
             lua_input = re.sub('function \\(\\)', '', lua_input)
             lua_input = re.sub('end\\(\\)', '', lua_input)
             lua_input = re.sub('uv0', 'pg', lua_input)

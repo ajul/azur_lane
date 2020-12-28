@@ -24,9 +24,10 @@ color_count_override = {
 
 def redo_condition(skill_src, skill_display_src, weapon_ids):
     #if skill_src['id'] == 13020: return True
-    return False
+    return True
 
 for ship_id, ship_data_src in ship_data_srcs.items():
+    if not ship_data_src['buff_list_display']: continue
     for skill_id in ship_data_src['buff_list_display'].values():
         if skill_id not in skill_to_ship_names_map:
             skill_to_ship_names_map[skill_id] = set()
@@ -50,7 +51,7 @@ skill_display_srcs[40001] = {
 
 for skill_id, skill_display_src in skill_display_srcs.items():
     #if skill_id < 100000: continue
-    #if skill_id not in [19263]: continue
+    if skill_id not in [13440]: continue
     try:
         skill_src = load_lua.load_skill(skill_id)
     except FileNotFoundError:
