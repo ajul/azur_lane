@@ -25,7 +25,9 @@ ship_types = {
     14 : 'Torpedo',
     15 : 'Cargo',
     16 : 'Bomb',
+    17 : 'SSV',
     18 : 'CB',
+    19 : 'AE',
 }
 
 aircraft_types = {
