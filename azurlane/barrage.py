@@ -57,8 +57,8 @@ tints = {
     'kuasheSAP' : (1.0, 0.5, 0.5),
 }
 
-velocity_factor = 6
-acceleration_factor = 900
+velocity_factor = 6       # = 60 fps / 10 normalization factor
+acceleration_factor = 900 # = 30 fps squared
 
 background_color = (34, 34, 34, 255)
 

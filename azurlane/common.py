@@ -43,8 +43,23 @@ armor_types = {
 }
 
 equipment_types = {
+    1 : 'DD Gun',
+    2 : 'CL Gun',
+    3 : 'CA Gun',
+    4 : 'BB Gun',
+    5 : 'Torpedo',
+    6 : 'AA Gun',
     7 : 'Fighter',
+    8 : 'Torpedo Bomber',
     9 : 'Dive Bomber',
+    10 : 'Auxiliary',
+    11 : 'CB Gun',
+    12 : 'Seaplane',
+    13 : 'Submarine Torpedo',
+    14 : 'Depth Charge',
+    15 : 'ASW Aircraft',
+    17 : 'Helicopter',
+    18 : 'Cargo',
 }
 
 nationalities = {

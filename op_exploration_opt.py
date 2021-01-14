@@ -5,7 +5,7 @@ target_srcs = load_lua.load_sharecfg('world_target_data', key_type=int)
 item_srcs = load_lua.load_sharecfg('item_data_statistics', key_type=int)
 world_item_srcs = load_lua.load_sharecfg('world_item_data_template', key_type=int)
 
-desired_item = 'T4 Mystery Gear Part'
+desired_item = 'Logger'
 
 class CorruptionData():
     def __init__(self, cost, production):
@@ -17,40 +17,62 @@ all_corruption_data = {
         'Gain control' : 1,
         'resource node' : 2,
         'victor' : 2,
+        'Merchant' : 0.01,
         }),
     2 : CorruptionData(10, {
         'Gain control' : 1,
         'resource node' : 2,
         'victor' : 2,
+        'Merchant' : 0.01,
         }),
     3 : CorruptionData(15, {
+        'anomalous' : 0.4,
         'Gain control' : 1,
-        'Meowfficer' : 0.25,
+        'Meowfficer' : 0.4,
         'resource node' : 3,
-        'victor' : 2, 
+        'victor' : 2,
+        'Merchant' : 0.01,
+        'Scanning' : 0.025,
         }),
     4 : CorruptionData(20, {
         'anomalous' : 0.25,
         'Gain control' : 1,
         'Meowfficer' : 0.5,
-        'resource node' : 4,
-        'victor' : 3, 
+        'resource node' : 5,
+        'victor' : 3,
+        'Merchant' : 0.025,
+        'Scanning' : 0.025,
         }),
     5 : CorruptionData(30, {
         'anomalous' : 0.25,
         'Gain control' : 1,
         'Meowfficer' : 1.0,
-        'resource node' : 6,
-        'victor' : 3, 
+        'resource node' : 7,
+        'victor' : 3,
+        'Merchant' : 0.025,
+        'Scanning' : 0.025,
         }),
     6 : CorruptionData(40, {
         'anomalous' : 0.25,
         'Gain control' : 1,
         'Meowfficer' : 1.0,
         'resource node' : 7,
-        'victor' : 3, 
+        'victor' : 3,
+        'Merchant' : 0.025,
+        'Scanning' : 0.025,
         }),
 }
+
+records = [
+    44, 84,
+    24, 92,
+    93, 131,
+    21, 31,
+    43, 112,
+    22, 134,
+    81, 132,
+    23, 62,
+    83, 122]
 
 rows = []
 
@@ -61,6 +83,7 @@ for chapter_id, chapter_data in chapter_srcs.items():
         ap_cost = str(chapter_data['enter_cost'])
         if ap_cost == '0': continue
         if corruption > 6: continue
+        if 'Depths' in chapter_name: continue
 
         corruption_data = all_corruption_data[corruption]
 
@@ -74,11 +97,14 @@ for chapter_id, chapter_data in chapter_srcs.items():
 
         star_costs = []
         for target in targets:
-            for product, product_quantity in corruption_data.production.items():
-                if product in target['target_desc']:
-                    target_quantity = target['condition'][1][2]
-                    star_costs.append((corruption_data.cost * target_quantity / product_quantity, product))
-                    break
+            if 'record' in target['target_desc'] and chapter_id in records:
+                star_costs.append((corruption_data.cost, 'record'))
+            else:
+                for product, product_quantity in corruption_data.production.items():
+                    if product in target['target_desc']:
+                        target_quantity = target['condition'][1][2]
+                        star_costs.append((corruption_data.cost * target_quantity / product_quantity, product))
+                        break
 
         star_costs.sort()
 
@@ -96,17 +122,17 @@ for chapter_id, chapter_data in chapter_srcs.items():
             elif item_type == 12:
                 item_data = world_item_srcs[item_id]
             item_name = item_data['name']
-            if item_name == desired_item:
+            if desired_item in item_name:
                 cost, product = star_costs[stars-1]
                 total_quantity += item_quantity
                 unit_cost = cost / total_quantity  
-                rows.append((chapter_id, chapter_name, stars, corruption, unit_cost, product))
+                rows.append((chapter_id, chapter_name, stars, corruption, total_quantity, unit_cost, product))
                 
 result = '{| class = "wikitable sortable"\n'
-result += '! ID !! Zone !! Star level !! Corruption !! Estimated unit cost !! Target type\n'
-for chapter_id, chapter_name, stars, corruption, unit_cost, product in rows:
+result += '! ID !! Zone !! Star level !! Corruption !! Qty !! Est. unit cost !! Target type\n'
+for row in rows:
     result += '|-\n'
-    result += '| %d || %s || %d || %d || %0.1f || %s \n' % (chapter_id, chapter_name, stars, corruption, unit_cost, product)
+    result += '| %d || %s || %d || %d || %d || %d || %s \n' % row
 
 result += '|}\n'
 
