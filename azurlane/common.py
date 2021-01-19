@@ -62,6 +62,12 @@ equipment_types = {
     18 : 'Cargo',
 }
 
+ammo_types = {
+    1 : 'Normal',
+    2 : 'AP',
+    3 : 'HE',
+}
+
 nationalities = {
     1 : 'Eagle Union',
     2 : 'Royal Navy',

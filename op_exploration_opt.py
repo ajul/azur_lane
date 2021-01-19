@@ -5,7 +5,7 @@ target_srcs = load_lua.load_sharecfg('world_target_data', key_type=int)
 item_srcs = load_lua.load_sharecfg('item_data_statistics', key_type=int)
 world_item_srcs = load_lua.load_sharecfg('world_item_data_template', key_type=int)
 
-desired_item = 'Logger'
+desired_item = 'Cube'
 
 class CorruptionData():
     def __init__(self, cost, production):
@@ -15,18 +15,21 @@ class CorruptionData():
 all_corruption_data = {
     1 : CorruptionData(5, {
         'Gain control' : 1,
+        'record' : 0.5,
         'resource node' : 2,
         'victor' : 2,
         'Merchant' : 0.01,
         }),
     2 : CorruptionData(10, {
         'Gain control' : 1,
+        'record' : 0.5,
         'resource node' : 2,
         'victor' : 2,
         'Merchant' : 0.01,
         }),
     3 : CorruptionData(15, {
         'anomalous' : 0.4,
+        'record' : 0.5,
         'Gain control' : 1,
         'Meowfficer' : 0.4,
         'resource node' : 3,
@@ -37,6 +40,7 @@ all_corruption_data = {
     4 : CorruptionData(20, {
         'anomalous' : 0.25,
         'Gain control' : 1,
+        'record' : 0.5,
         'Meowfficer' : 0.5,
         'resource node' : 5,
         'victor' : 3,
@@ -46,6 +50,7 @@ all_corruption_data = {
     5 : CorruptionData(30, {
         'anomalous' : 0.25,
         'Gain control' : 1,
+        'record' : 0.5,
         'Meowfficer' : 1.0,
         'resource node' : 7,
         'victor' : 3,
@@ -55,6 +60,7 @@ all_corruption_data = {
     6 : CorruptionData(40, {
         'anomalous' : 0.25,
         'Gain control' : 1,
+        'record' : 0.5,
         'Meowfficer' : 1.0,
         'resource node' : 7,
         'victor' : 3,
@@ -97,14 +103,11 @@ for chapter_id, chapter_data in chapter_srcs.items():
 
         star_costs = []
         for target in targets:
-            if 'record' in target['target_desc'] and chapter_id in records:
-                star_costs.append((corruption_data.cost, 'record'))
-            else:
-                for product, product_quantity in corruption_data.production.items():
-                    if product in target['target_desc']:
-                        target_quantity = target['condition'][1][2]
-                        star_costs.append((corruption_data.cost * target_quantity / product_quantity, product))
-                        break
+            for product, product_quantity in corruption_data.production.items():
+                if product in target['target_desc']:
+                    target_quantity = target['condition'][1][2]
+                    star_costs.append((corruption_data.cost * target_quantity / product_quantity, product))
+                    break
 
         star_costs.sort()
 

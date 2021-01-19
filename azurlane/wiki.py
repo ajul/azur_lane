@@ -8,12 +8,16 @@ def get_template_value(src, key, default_value = None):
     else:
         return None
     
-def set_template_value(src, key, new_value, insert_after_keys):   
+def set_template_value(src, key, new_value, insert_after_keys):
     existing_pattern = key + u'[ \t]*=[ \t]*(.*)'
     match = re.search(existing_pattern, src)
     if match:
-        replacement = key + ' = ' + new_value
-        return re.sub(existing_pattern, replacement, src, count=1)
+        if match.group(1) == new_value:
+            return src
+        else:
+            existing_pattern = key + u'[ \t]*=[ \t]*(.*)'
+            replacement = key + ' = ' + new_value
+            return re.sub(existing_pattern, replacement, src, count=1)
     else:
         if isinstance(insert_after_keys, str): insert_after_keys = [insert_after_keys]
         for insert_after_key in insert_after_keys:
@@ -32,11 +36,12 @@ def map_page_titles(pages, key, value_type = None):
             print(page.title)
             if '<tabber>' in page.text:
                 for tab in page.text.split('|-|'):
-                    tab_title_pattern = u'(.*)[ \t]*=[ \t]*\{\{'
+                    # include newlines next to '='
+                    tab_title_pattern = u'(.*)\s*=\s*\{\{'
                     match = re.search(tab_title_pattern, tab)
                     if match is None:
                         print(tab)
-                    tab_title = match.group(1)
+                    tab_title = match.group(1).strip()
                     yield page.title() + '#' + tab_title, tab
             else:
                 yield page.title(), page.text
