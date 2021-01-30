@@ -22,7 +22,7 @@ color_count_override = {
     12810 : 64,
 }
 
-def redo_condition(skill_src, skill_display_src, weapon_ids):
+def redo_condition(skill_src, weapon_ids):
     #if skill_src['id'] == 13020: return True
     return False
 
@@ -49,14 +49,29 @@ skill_display_srcs[40001] = {
     'id' : 40001,
 }
 
-for skill_id, skill_display_src in skill_display_srcs.items():
+def find_names(skill_id):
+    rounded_skill_id = (skill_id // 10) * 10
+    candidate_skill_ids = [x for x in range(skill_id, rounded_skill_id-1, -1)]
+    name = None
+    for candidate_skill_id in candidate_skill_ids:
+        if candidate_skill_id in skill_display_srcs:
+            name = skill_display_srcs[candidate_skill_id]['name']
+            break
+        elif candidate_skill_id in skill_data_srcs:
+            name = skill_data_srcs[candidate_skill_id]['name']
+            break
+    ships = None
+    for candidate_skill_id in candidate_skill_ids:
+        if candidate_skill_id in skill_to_ship_names_map:
+            ships = skill_to_ship_names_map[candidate_skill_id]
+            break
+    return name, ships
+
+for skill_src in load_lua.skill_iter():
+    skill_id = skill_src['id']
     #if skill_id < 100000: continue
     #if skill_id not in [13440]: continue
-    try:
-        skill_src = load_lua.load_skill(skill_id)
-    except FileNotFoundError:
-        #print('No skill file for skill_id', skill_id)
-        continue
+
     last_index = 0
     while last_index + 1 in skill_src:
         last_index += 1
@@ -76,20 +91,21 @@ for skill_id, skill_display_src in skill_display_srcs.items():
         weapon_ids.append(weapon_id)
             
     if len(weapon_ids) == 0: continue
-    ship_names = []
-    rounded_skill_id = (skill_id // 10) * 10
-    if skill_id in skill_to_ship_names_map:
-        ship_names = skill_to_ship_names_map[skill_id]
-    elif rounded_skill_id in skill_to_ship_names_map:
-        ship_names = skill_to_ship_names_map[rounded_skill_id]
+    name, ships = find_names(skill_id)
+    if not name and not ships:
+        print('No skill name or ship found for skill ID', skill_id)
+        continue
+
+    if not name:
+        name = '(unknown skill name)'
     
     weapon_set = tuple(weapon_ids)
     if weapon_set in seen_weapon_sets:
-        print('ships', ship_names, ':', skill_display_src['name'], 'skill_id', skill_id, ': weapon_ids', weapon_ids, '-> skill_id', seen_weapon_sets[weapon_set])
+        print('ships', ships, ':', name, 'skill_id', skill_id, ': weapon_ids', weapon_ids, '-> skill_id', seen_weapon_sets[weapon_set])
         continue
     else:
         seen_weapon_sets[weapon_set] = skill_id
-        print('ships', ship_names, ':', skill_display_src['name'], 'skill_id', skill_id, ': weapon_ids', weapon_ids)
+        print('ships', ships, ':', name, 'skill_id', skill_id, ': weapon_ids', weapon_ids)
     
     filename_out = 'skill_anim_out/bullet_pattern_skill_%d.gif' % skill_id
     
@@ -97,12 +113,14 @@ for skill_id, skill_display_src in skill_display_srcs.items():
     if skill_id in color_count_override:
         color_count = color_count_override[skill_id]
     animator = anim.GifAnimator(color_count=color_count)
+    #animator = anim.Img2WebPAnimator()
     
-    if not os.path.exists(filename_out) or redo_condition(skill_src, skill_display_src, weapon_ids):
+    if not os.path.exists(filename_out) or redo_condition(skill_src, weapon_ids):
         try:
             barrage.create_barrage_anim(animator, weapon_ids, world_size)
-        except:
-            print(traceback.print_exc())
+        except Exception as e:
+            print('Error:', e)
+            #print(traceback.print_exc())
             #print(sys.exc_info(), traceback.print_exc())
         animator.write_animation(filename_out)
     

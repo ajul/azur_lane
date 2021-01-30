@@ -36,6 +36,48 @@ class GifAnimator(Animator):
         proc = subprocess.Popen(gifsicle_cmd, startupinfo = startupinfo)
         proc.wait()
 
+try:
+    import webp
+
+    class WebPAnimator(Animator):
+        def reset(self):
+            self.frames = []
+        
+        def __init__(self, fps = 60, lossless=1, quality=100, preset=webp.WebPPreset.DEFAULT):
+            self.fps = fps
+            self.quality = quality
+            self.preset = preset
+            self.reset()
+        
+        def write_frame(self, frame):
+            self.frames.append(frame)
+        
+        def write_animation(self, filename_out):
+            if not self.frames: return
+            webp.save_images(self.frames, filename_out, fps=self.fps, quality=self.quality, preset=self.preset)
+except:
+    print('Warning: webp not supported')
+    
+class Img2WebPAnimator(Animator):
+    temp_pattern = 'temp/frame_%04d.png'
+    def __init__(self, fps = 60, quality = 20):
+        self.fps = fps
+        self.quality = quality
+        self.reset()
+    
+    def write_animation(self, filename_out):
+        cmd = ['./img2webp.exe',
+                    '-o', filename_out,
+                    '-min_size',
+                    '-mixed',
+                    '-d', str(int(round(1000 / self.fps))),
+                    '-q', str(self.quality),
+                    '-m', '6',
+        ] + self.frame_filenames
+                    
+        proc = subprocess.Popen(cmd, startupinfo = startupinfo)
+        proc.wait()
+
 class Vp8Animator(Animator):
     temp_pattern = 'temp/frame_%04d.bmp'
     

@@ -284,7 +284,7 @@ class Pattern():
                 speed = bullet_src['velocity'] + self.weapon_set.random_centered(bullet_src['extra_param'].get('velocity_offset', 0.0)) * 2.0
                 
                 if self.parent_bullet:
-                    print(self.parent_bullet.position)
+                    #print(self.parent_bullet.position)
                     position0 = self.parent_bullet.position.copy()
                     random_target_pos = self.weapon_set.target_pos + random_offset
                     angle0 = offset_angle + delta_angle * parallel_idx
