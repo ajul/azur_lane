@@ -1,188 +1,76 @@
-from azurlane import common, load_lua
+import azurlane.common
+import azurlane.ship
 
-fleet_tech_ship_src = load_lua.load_sharecfg('fleet_tech_ship_template', key_type=int)
-ship_data_src = load_lua.load_sharecfg('ship_data_statistics', key_type=int)
+goal = 'level'
 
 ship_type_groups = [
-    ['DD'],
-    ['CL'],
-    ['CA', 'BM', 'CB'],
-    ['BB', 'BC', 'BBV'],
-    ['CV', 'CVL'],
-    ['AR'],
-    ['AE'],
-    ['SS', 'SSV'],
+    ('DD',),
+    ('CL',),
+    ('CA', 'BM', 'CB'),
+    ('BC', 'BB', 'BBV'),
+    ('CVL', 'CV'),
+    ('AR',),
+    ('AE',),
+    ('SS', 'SSV'),
 ]
 
-ship_type_group_map = {}
+# ship_type_group -> (benefit_ship_types, value, shiptypes) -> nationality_id -> ship names
+data = [{} for x in ship_type_groups]
 
-for ship_type_group in ship_type_groups:
-    for ship_type in ship_type_group:
-        ship_type_group_map[ship_type] = ship_type_group[0]
+for ship_group in azurlane.ship.ship_group_iter():
+    if ship_group.fleet_tech_src is None: continue
 
-class Ship():
-    def __init__(self, fleet_tech_ship, ship_data):
-        self.points_collect = fleet_tech_ship['pt_get']
-        self.points_lb = fleet_tech_ship['pt_upgrage']
-        self.points_120 = fleet_tech_ship['pt_level']
+    attribute_key = 'add_' + goal + '_attr'
+    amount_key = 'add_' + goal + '_value'
+    shiptype_key = 'add_' + goal + '_shiptype'
+    attribute_id = ship_group.fleet_tech_src[attribute_key]
+    amount = ship_group.fleet_tech_src[amount_key]
+    benefit_ship_types = tuple(azurlane.common.ship_types[x] for x in ship_group.fleet_tech_src[shiptype_key].values())
 
-        self.bonus_type_collect = common.attributes[fleet_tech_ship['add_get_attr']]
-        self.bonus_amount_collect = fleet_tech_ship['add_get_value']
-        self.bonus_type_120 = common.attributes[fleet_tech_ship['add_level_attr']]
-        self.bonus_amount_120 = fleet_tech_ship['add_level_value']
+    for ship_type_group_id, ship_types in enumerate(ship_type_groups):
+        if ship_group.ship_type in ship_types: break
 
-        self.name = ship_data['name']
-        self.ship_type = common.ship_types[ship_data['type']]
-        self.ship_type_group = ship_type_group_map[self.ship_type]
-        self.nationality = common.nationalities[ship_data['nationality']]
+    ship_type_group_data = data[ship_type_group_id]
+    if len(benefit_ship_types) == len(ship_types):
+        benefit_ship_types = ()
+    key = (attribute_id, benefit_ship_types, amount)
+    if key not in ship_type_group_data: ship_type_group_data[key] = [[] for x in range(5)]
+    nationality_index = ship_group.src['nationality']
+    if nationality_index > 4: nationality_index = 0
+    ship_type_group_data[key][nationality_index].append(ship_group.name)
 
-ships = []
+tabs = []
 
-for fleet_tech_ship_id, fleet_tech_ship in fleet_tech_ship_src.items():
-    ship_data_id = fleet_tech_ship['id'] * 10 + 1
-    if ship_data_id in ship_data_src:
-        ship_data = ship_data_src[ship_data_id]
-        ships.append(Ship(fleet_tech_ship, ship_data))
-    else:
-        print('Missing ship_data_id', ship_data_id)
+for ship_type_group_id, ship_types in enumerate(ship_type_groups):
+    tab = '/'.join(ship_types) + '=\n'
+    tab += '{|class = "azltable"\n'
+    tab += '! style="min-width:75px;" | Bonus\n'
+    tab += '! style="width:100%;" | Ships\n'
+    ship_type_group_data = data[ship_type_group_id]
+    for key in sorted(ship_type_group_data.keys()):
+        attribute_id, benefit_ship_types, amount = key
+        
+        tab += '|-\n'
+        tab += '| +%d {{%s}}' % (amount, azurlane.common.attributes[attribute_id])
+        if benefit_ship_types: tab += '<br/>(' + '/'.join(benefit_ship_types) + ' only)'
+        tab += ' || '
 
-stat_values = {
-    'DD' : {
-        'Firepower' : 11,
-        'Torpedo' : 15,
-        'Reload' : 18,
-        'Accuracy' : 19,
-        'Evasion' : 28,
-        'Health' : 5,
-        'AA' : 10,
-        'ASW' : 5,
-    },
-    'CL' : {
-        'Firepower' : 18,
-        'Torpedo' : 13,
-        'Reload' : 20,
-        'Accuracy' : 29,
-        'Evasion' : 42,
-        'Health' : 3,
-        'AA' : 7,
-        'ASW' : 5,
-    },
-    'CA' : {
-        'Firepower' : 18,
-        'Torpedo' : 13,
-        'Reload' : 20,
-        'Accuracy' : 43,
-        'Evasion' : 52,
-        'Health' : 2.5,
-        'AA' : 9,
-    },
-    'BB' : {
-        'Firepower' : 20,
-        'Reload' : 22,
-        'Accuracy' : 50,
-        'Evasion' : 15,  # ?
-        'Health' : 1.5,
-        'AA' : 9,
-    },
-    'CV' : {
-        'Aviation' : 16,
-        'Reload' : 24,
-        'Accuracy' : 100,
-        'Health' : 2,
-        'AA' : 7.5,
-        'ASW' : 5,
-    },
-    'AE' : {
-        'Firepower' : 18,
-        'Torpedo' : 13,
-        'Reload' : 20,
-        'Accuracy' : 29,
-        'Evasion' : 42,
-        'Health' : 3,
-        'AA' : 7,
-        'ASW' : 5,
-    },
-}
+        ship_lines = []
 
-faction_technology = {
-    'Ironblood' : (
-        ('DD', 'Health', 10),
-        ('DD', 'Firepower', 4),
-        ('CL', 'Health', 10),
-        ('CL', 'Firepower', 1),
-        ('CA', 'Health', 5),
-        ('CA', 'Firepower', 1),
-        ('BB', 'Health', 20),
-    ),
-    'Sakura Empire' : (
-        ('DD', 'Torpedo', 7),
-        ('CL', 'Torpedo', 13),
-        ('CA', 'Torpedo', 13),
-        ('BB', 'Firepower', 10),
-        ('CV', 'Aviation', 7),
-    ),
-    'Royal Navy' : (
-        ('DD', 'Evasion', 7),
-        ('CL', 'Firepower', 7),
-        ('CA', 'Firepower', 7),
-        ('BB', 'Firepower', 4),
-        ('CV', 'Aviation', 5),
-        ('CV', 'Reload', 7),
-    ),
-    'Eagle Union' : (
-        ('DD', 'AA', 10),
-        ('DD', 'Reload', 7),
-        ('CL', 'Firepower', 7),
-        ('CL', 'Reload', 7),
-        ('CA', 'Firepower', 7),
-        ('CA', 'Reload', 7),
-        ('BB', 'AA', 10),
-        ('BB', 'Accuracy', 10),
-        ('CV', 'Aviation', 7),
-        ('CV', 'Reload', 7),
-    ),
-}
+        ship_lists = ship_type_group_data[key]
+        for nationality_index, nationality in [(1, 'Eagle Union'),
+                                               (2, 'Royal Navy'),
+                                               (3, 'Sakura Empire'),
+                                               (4, 'Iron Blood'),
+                                               (0, 'Other')]:
+            ship_list = azurlane.ship.sorted_ship_name_list(ship_lists[nationality_index])
+            if ship_list:
+                ship_lines.append("'''%s:''' " % nationality + ', '.join('[[%s]]' % name for name in ship_list))
 
-"""
-for nationality, bonuses in faction_technology.items():
-    total = 0
-    for ship_type_group, stat, amount in bonuses:
-        total += amount * stat_values[ship_type_group][stat]
-    print(nationality, total)
-"""
+        tab += '<br/>'.join(ship_lines) + '\n'
+    tab += '|}\n'
+    tabs.append(tab)
 
-faction_point_values = {
-    'Ironblood' : 0.16,
-    'Sakura Empire' : 0.28,
-    'Royal Navy' : 0.32,
-    'Eagle Union' : 0.6,
-}
-
-"""
-for nationality in common.nationalities.values():
-    total = 0
-    for ship in ships:
-        if ship.nationality == nationality:
-            total += ship.points_collect + ship.points_lb + ship.points_120
-    print(nationality, total)
-"""
-
-rows = []
-
-for ship in ships:
-    if ship.ship_type_group in ['AR', 'SS']: continue
-    value = stat_values[ship.ship_type_group][ship.bonus_type_120] * ship.bonus_amount_120
-    if ship.nationality in faction_point_values:
-        value += faction_point_values[ship.nationality] * ship.points_120
-
-    bonus_string = '+%d %s' % (ship.bonus_amount_120, ship.bonus_type_120)
-
-    rows.append([ship.name, ship.ship_type_group, ship.nationality, value, bonus_string])
-
-import csv
-
-with open('ship_tech_values.csv', 'w', newline='') as outfile:
-    writer = csv.writer(outfile)
-    writer.writerow(['Name', 'Group', 'Nationality', 'Value', 'Lv 120 Bonus'])
-    for row in rows:
-        writer.writerow(row)
+result = '<tabber>\n' + '|-|\n'.join(tabs) + '</tabber>\n'
+print(result)
+            
